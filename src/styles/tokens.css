@@ -1,0 +1,45 @@
+/* Monochrome glow: black, white and gray only. */
+:root {
+  color-scheme: dark;
+
+  --bg: #000000;
+  --bg-grid: rgba(255, 255, 255, 0.025);
+  --panel: #0a0a0a;
+  --panel-deep: #050505;
+  --line: rgba(255, 255, 255, 0.1);
+  --line-strong: rgba(255, 255, 255, 0.18);
+  --divider: #1c1c1c;
+  --track: #161616;
+  --text: #f5f5f5;
+  --text-strong: #ffffff;
+  --muted: #8c8c8c;
+  --dim: #5c5c5c;
+  --tick: #3a3a3a;
+
+  --lv-rest: #0e0e10;
+  --lv-rest-stroke: #2c2c30;
+  --lv-light: #2e2e32;
+  --lv-light-stroke: #4a4a50;
+  --lv-solid: #9c9ca2;
+  --lv-peak: #ffffff;
+
+  --glow-text-hero: 0 0 18px rgba(255, 255, 255, 0.55), 0 0 42px rgba(255, 255, 255, 0.25);
+  --glow-text-soft: 0 0 12px rgba(255, 255, 255, 0.35);
+  --glow-btn-filled: 0 0 22px rgba(255, 255, 255, 0.45), 0 0 60px rgba(255, 255, 255, 0.15);
+  --glow-btn-outline: 0 0 16px rgba(255, 255, 255, 0.35), inset 0 0 14px rgba(255, 255, 255, 0.12);
+  --glow-card: 0 0 30px rgba(255, 255, 255, 0.08), inset 0 0 30px rgba(255, 255, 255, 0.03);
+  --glow-panel: 0 0 40px rgba(255, 255, 255, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --glow-bar: 0 0 8px rgba(255, 255, 255, 0.9);
+  --glow-icon: drop-shadow(0 0 3px rgba(255, 255, 255, 0.8));
+
+  --f-display: 'Unbounded', 'Segoe UI', system-ui, sans-serif;
+  --f-body: 'Geist', 'Segoe UI', system-ui, sans-serif;
+  --f-mono: 'Geist Mono', ui-monospace, monospace;
+
+  --r-tile: 16px;
+  --r-card: 22px;
+  --r-btn: 14px;
+  --gutter: 20px;
+  --gap: 18px;
+  --tabbar-h: 80px;
+}
