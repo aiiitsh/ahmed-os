@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
 import { patchSettings, patchSkill, setPin } from '../lib/actions'
@@ -101,6 +101,7 @@ export function Settings() {
         <Label>About</Label>
         <p className="small">Ahmed OS · v0.1 · America/Toronto · weeks run Saturday → Friday.</p>
         <p className="small muted">Not medical advice. See a physio for pain.</p>
+        <Diagnostics />
       </section>
     </div>
   )
@@ -125,4 +126,29 @@ function SkillRow({ k, s }: { k: string; s: { name: string; level: number; level
       </div>
     </div>
   )
+}
+
+/** Screen facts for layout debugging (send a screenshot of this). */
+function Diagnostics() {
+  const [d, setD] = useState('')
+  useEffect(() => {
+    const probe = document.createElement('div')
+    probe.style.cssText = 'position:fixed;visibility:hidden;padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left)'
+    document.body.appendChild(probe)
+    const cs = getComputedStyle(probe)
+    const safe = [cs.paddingTop, cs.paddingRight, cs.paddingBottom, cs.paddingLeft].map((v) => parseInt(v)).join('/')
+    probe.remove()
+    const bar = document.querySelector('.tabbar')?.getBoundingClientRect()
+    const standalone = (navigator as any).standalone === true || matchMedia('(display-mode: standalone)').matches
+    setD([
+      `build ${__BUILD__}`,
+      standalone ? 'installed app' : 'browser tab',
+      `screen ${screen.width}×${screen.height}`,
+      `window ${innerWidth}×${innerHeight}`,
+      `visual ${Math.round(visualViewport?.width ?? 0)}×${Math.round(visualViewport?.height ?? 0)}`,
+      `safe ${safe}`,
+      bar ? `tabbar top ${Math.round(bar.top)} h ${Math.round(bar.height)}` : 'tabbar hidden',
+    ].join(' · '))
+  }, [])
+  return <p className="mono dim" style={{ fontSize: 10, lineHeight: 1.6, letterSpacing: '.04em' }}>{d}</p>
 }
