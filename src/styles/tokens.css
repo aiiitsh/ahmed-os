@@ -41,5 +41,7 @@
   --r-btn: 14px;
   --gutter: 20px;
   --gap: 18px;
-  --tabbar-h: 80px;
+  /* Tab bar: native iOS proportions. The pad hugs the home indicator instead of clearing all 34px of it. */
+  --tabbar-h: 52px;
+  --tabbar-pad: max(6px, calc(env(safe-area-inset-bottom) - 12px));
 }
