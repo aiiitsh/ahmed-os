@@ -1,5 +1,9 @@
 *, *::before, *::after { box-sizing: border-box; }
-html, body, #root { margin: 0; min-height: 100%; }
+html, body, #root { margin: 0; height: 100%; }
+/* App shell: the page itself never scrolls, bounces or drifts sideways; each screen scrolls inside. */
+html, body { overflow: hidden; overscroll-behavior: none; position: fixed; inset: 0; }
+body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
+input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; }
 html { -webkit-text-size-adjust: 100%; }
 body {
   background: var(--bg);
@@ -35,10 +39,22 @@ p { margin: 0; }
 .small { font-size: 12px; }
 
 /* ---------- layout ---------- */
-.app { min-height: 100vh; min-height: 100dvh; overflow-x: clip; }
-html, body { overflow-x: hidden; }
-.main { overflow-x: clip; }
-.main { padding: calc(env(safe-area-inset-top) + 14px) calc(var(--gutter) + env(safe-area-inset-right)) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px) calc(var(--gutter) + env(safe-area-inset-left)); }
+.app { height: 100%; }
+.main { position: fixed; inset: 0; overflow: hidden; }
+.screen { position: absolute; inset: 0; overflow-x: hidden; overflow-y: auto; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; touch-action: pan-y;
+  padding: calc(env(safe-area-inset-top) + 14px) calc(var(--gutter) + env(safe-area-inset-right)) calc(var(--tabbar-h) + env(safe-area-inset-bottom) + 24px) calc(var(--gutter) + env(safe-area-inset-left));
+  background-color: var(--bg);
+  background-image: linear-gradient(var(--bg-grid) 1px, transparent 1px), linear-gradient(90deg, var(--bg-grid) 1px, transparent 1px);
+  background-size: 26px 26px; }
+/* iOS-style push: the new screen slides over, the old one drifts back and dims. */
+.screen.in-right { z-index: 2; animation: inRight .34s cubic-bezier(.2, .85, .25, 1) both; box-shadow: -12px 0 40px rgba(0,0,0,.6); }
+.screen.out-left { z-index: 1; animation: outLeft .34s cubic-bezier(.2, .85, .25, 1) both; pointer-events: none; }
+.screen.in-left { z-index: 1; animation: inLeft .34s cubic-bezier(.2, .85, .25, 1) both; }
+.screen.out-right { z-index: 2; animation: outRight .34s cubic-bezier(.2, .85, .25, 1) both; pointer-events: none; box-shadow: -12px 0 40px rgba(0,0,0,.6); }
+@keyframes inRight { from { transform: translateX(100%); } to { transform: none; } }
+@keyframes outLeft { from { transform: none; opacity: 1; } to { transform: translateX(-28%); opacity: .35; } }
+@keyframes inLeft { from { transform: translateX(-28%); opacity: .35; } to { transform: none; opacity: 1; } }
+@keyframes outRight { from { transform: none; } to { transform: translateX(100%); } }
 .page { display: flex; flex-direction: column; gap: var(--gap); max-width: 560px; margin: 0 auto; position: relative; }
 .hero-light { position: absolute; top: -60px; left: 50%; width: 520px; height: 360px; transform: translateX(-50%); pointer-events: none;
   background: radial-gradient(ellipse at center, rgba(255,255,255,.10), rgba(255,255,255,0) 70%); z-index: -1; }
@@ -136,7 +152,7 @@ button.chip { min-height: 36px; }
 
 /* sheet */
 .sheet-bg { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.66); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); display: flex; align-items: flex-end; justify-content: center; animation: fade .15s; }
-.sheet { width: 100%; max-width: 560px; max-height: 88vh; overflow: auto; background: var(--panel-deep); border: 1px solid var(--line-strong); border-bottom: 0;
+.sheet { width: 100%; max-width: 560px; max-height: 88vh; overflow: auto; overscroll-behavior: contain; background: var(--panel-deep); border: 1px solid var(--line-strong); border-bottom: 0;
   border-radius: 22px 22px 0 0; padding: 18px var(--gutter) calc(22px + env(safe-area-inset-bottom)); box-shadow: 0 -10px 60px rgba(255,255,255,.08); animation: up .2s ease-out; }
 .sheet-grip { width: 40px; height: 4px; border-radius: 2px; background: var(--tick); margin: -6px auto 14px; }
 @keyframes up { from { transform: translateY(30px); opacity: 0; } }
@@ -156,7 +172,7 @@ button.chip { min-height: 36px; }
 .page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 10px; padding-top: 6px; flex-wrap: wrap; }
 
 /* forms */
-.field { width: 100%; min-height: 48px; padding: 12px 14px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-strong); outline: none; }
+.field { width: 100%; min-height: 48px; padding: 12px 14px; font-size: 16px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line-strong); outline: none; }
 .field:focus { border-color: var(--text-strong); box-shadow: 0 0 12px rgba(255,255,255,.2); }
 textarea.field { min-height: 96px; resize: vertical; line-height: 1.45; }
 input[type=date].field { color-scheme: dark; }
@@ -188,7 +204,7 @@ input[type=date].field { color-scheme: dark; }
 .heat .c.sel { outline: 1px solid #fff; outline-offset: 1px; }
 
 /* session runner */
-.runner { position: fixed; inset: 0; z-index: 40; background: var(--bg); overflow-y: auto; overflow-x: hidden;
+.runner { position: fixed; inset: 0; z-index: 40; background: var(--bg); overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; touch-action: pan-y;
   padding: calc(env(safe-area-inset-top) + 16px) var(--gutter) calc(env(safe-area-inset-bottom) + 24px); }
 .runner .page { min-height: 100%; }
 .dots { display: flex; gap: 6px; }
@@ -224,7 +240,8 @@ input[type=date].field { color-scheme: dark; }
   .sidebar .tab { flex-direction: row; justify-content: flex-start; gap: 14px; padding: 12px; border-radius: 12px; }
   .sidebar .tab .label { font-size: 11px; }
   .sidebar .tab.on { background: rgba(255,255,255,.04); border: 1px solid var(--line); }
-  .main { margin-left: 220px; padding: 28px 32px 48px; }
+  .main { left: 220px; }
+  .screen { padding: 28px 32px 48px; }
   .page { max-width: 1280px; }
   .toasts { bottom: 24px; left: calc(50% + 110px); }
   .runner { left: 220px; }

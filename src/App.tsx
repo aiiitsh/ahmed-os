@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import type { Session } from '@supabase/supabase-js'
 import { configured, supabase } from './lib/supabase'
 import { demoMode, demoData } from './lib/demo'
@@ -37,7 +37,7 @@ function useRoute(): Route {
   }
   const [r, setR] = useState(parse)
   useEffect(() => {
-    const on = () => { setR(parse()); window.scrollTo(0, 0) }
+    const on = () => setR(parse())
     window.addEventListener('hashchange', on)
     return () => window.removeEventListener('hashchange', on)
   }, [])
@@ -119,9 +119,7 @@ function Shell() {
         <button className="btn btn-outline" onClick={() => void load(true)}>Retry</button></div></div>
     ) : <Splash inline />
   } else {
-    screen = {
-      home: <Home />, body: <Body />, learn: <Learn />, work: <Work />, streak: <Streak />, review: <Review />, settings: <Settings />,
-    }[route]
+    screen = SCREENS[route]()
   }
 
   return (
@@ -133,7 +131,7 @@ function Shell() {
         <div style={{ flex: 1 }} />
         <TabLink t={{ r: 'settings', icon: 'gear', label: 'Settings' }} on={route === 'settings'} />
       </nav>
-      <main className="main">{screen}</main>
+      <Screens route={route}>{(r) => (loaded && hasApp ? SCREENS[r]() : screen)}</Screens>
       <nav className="tabbar" aria-label="Main">
         {TABS.map((t) => <TabLink key={t.r} t={t} on={route === t.r} />)}
       </nav>
@@ -141,6 +139,75 @@ function Shell() {
       <QuickSheets />
       <Toasts />
     </div>
+  )
+}
+
+const SCREENS: Record<Route, () => ReactNode> = {
+  home: () => <Home />, body: () => <Body />, learn: () => <Learn />, work: () => <Work />,
+  streak: () => <Streak />, review: () => <Review />, settings: () => <Settings />,
+}
+
+// ---------- native-feel navigation: slide transitions + swipe between tabs ----------
+
+const ORDER: Route[] = ['home', 'body', 'learn', 'work', 'streak', 'review']
+const rank = (r: Route) => (r === 'settings' ? 99 : ORDER.indexOf(r))
+type Layer = { r: Route; id: number; cls: string }
+
+function Screens({ route, children }: { route: Route; children: (r: Route) => ReactNode }) {
+  const [layers, setLayers] = useState<Layer[]>([{ r: route, id: 0, cls: '' }])
+  const prev = useRef(route)
+  const seq = useRef(0)
+  const touch = useRef<{ x: number; y: number; t: number } | null>(null)
+
+  useEffect(() => {
+    if (prev.current === route) return
+    const fwd = rank(route) > rank(prev.current)
+    prev.current = route
+    const still = matchMedia('(prefers-reduced-motion: reduce)').matches
+    const id = ++seq.current
+    setLayers((ls) => {
+      const cur = ls[ls.length - 1]
+      const next = { r: route, id, cls: still ? '' : fwd ? 'in-right' : 'in-left' }
+      return still ? [next] : [{ ...cur, cls: fwd ? 'out-left' : 'out-right' }, next]
+    })
+    // Fallback in case animationend never fires (backgrounded tab, etc.)
+    const t = window.setTimeout(() => settle(id), 600)
+    return () => window.clearTimeout(t)
+  }, [route])
+
+  const settle = (id: number) => setLayers((ls) => {
+    const last = ls[ls.length - 1]
+    return last.id === id ? [{ ...last, cls: '' }] : ls
+  })
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    const el = e.target as HTMLElement
+    const p = e.touches[0]
+    touch.current = e.touches.length === 1 && p.clientX > 20 && !el.closest('input, textarea, select, .heat, .stepper, [data-noswipe]')
+      ? { x: p.clientX, y: p.clientY, t: Date.now() } : null
+  }
+  const onTouchEnd = (e: React.TouchEvent) => {
+    const s = touch.current
+    touch.current = null
+    if (!s) return
+    const p = e.changedTouches[0]
+    const dx = p.clientX - s.x, dy = p.clientY - s.y
+    if (Math.abs(dx) < 70 || Math.abs(dx) < 2 * Math.abs(dy) || Date.now() - s.t > 700) return
+    const i = ORDER.indexOf(route)
+    const to = i < 0 ? (dx > 0 ? 'home' : null) : ORDER[i + (dx < 0 ? 1 : -1)]
+    if (to) location.hash = `#/${to}`
+  }
+
+  return (
+    <main className="main" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+      {layers.map((l, i) => (
+        <div key={l.id} className={`screen ${l.cls}${i === layers.length - 1 ? ' current' : ''}`}
+          aria-hidden={i !== layers.length - 1}
+          onAnimationEnd={(e) => e.target === e.currentTarget && l.cls.startsWith('in') && settle(l.id)}>
+          {children(l.r)}
+        </div>
+      ))}
+    </main>
   )
 }
 
@@ -186,7 +253,7 @@ function Splash({ inline }: { inline?: boolean }) {
 
 function SetupNeeded() {
   return (
-    <div className="main"><div className="page"><div className="hero-light" />
+    <div className="main"><div className="screen"><div className="page"><div className="hero-light" />
       <div className="hero-word">AHMED</div>
       <div className="panel stack">
         <div className="title">Connect Supabase</div>
@@ -194,6 +261,6 @@ function SetupNeeded() {
           <span className="mono"> VITE_SUPABASE_URL</span> and <span className="mono">VITE_SUPABASE_ANON_KEY</span>, then restart the dev server.
           For the deployed site, add them as GitHub Actions secrets.</p>
       </div>
-    </div></div>
+    </div></div></div>
   )
 }

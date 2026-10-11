@@ -153,7 +153,7 @@ function StreakBody() {
                 </div>
                 {selEntry?.reason && <p className="muted small" style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{selEntry.reason}</p>}
                 <div className="row" style={{ gap: 8, marginTop: 10 }}>
-                  <button className="btn grow" onClick={() => { loadDate(sel); window.scrollTo({ top: 0, behavior: 'smooth' }) }}>{selEntry ? 'Edit' : 'Add'}</button>
+                  <button className="btn grow" onClick={() => { loadDate(sel); document.querySelector('.screen.current')?.scrollTo({ top: 0, behavior: 'smooth' }) }}>{selEntry ? 'Edit' : 'Add'}</button>
                   {selEntry && <button className="btn grow" onClick={() => { deleteHabit(selEntry.id); setSel(null) }}>Delete</button>}
                 </div>
               </div>

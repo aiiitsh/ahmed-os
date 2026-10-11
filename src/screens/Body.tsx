@@ -239,10 +239,10 @@ function Bodyweight() {
         <Label>Bodyweight · weekly</Label>
         {loggedThisWeek ? <span className="chip on sm">✓ this week</span> : <span className="chip warn sm">due</span>}
       </div>
-      <div className="row between wrap" style={{ gap: 12 }}>
+      <div className="row" style={{ justifyContent: 'center' }}>
         <Stepper value={v.toFixed(1)} sub="kg" onMinus={() => setVal(Math.round((v - 0.1) * 10) / 10)} onPlus={() => setVal(Math.round((v + 0.1) * 10) / 10)} />
-        <button className="btn btn-filled btn-caps" style={{ minWidth: 100 }} onClick={() => { logBodyweight(v); setVal(null) }}>Save</button>
       </div>
+      <button className="btn btn-filled btn-caps btn-block" onClick={() => { logBodyweight(v); setVal(null) }}>Save</button>
       <Label>8 weeks</Label>
       <Sparkline values={series} />
     </section>

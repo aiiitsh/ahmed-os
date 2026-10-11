@@ -8,6 +8,7 @@ import { DAYS, EX, GOALS } from '../data/program'
 import { Bar, DeleteX, Label, Ring, useNow } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { QuickGrid } from '../components/QuickLog'
+import { InstallHint } from '../components/InstallHint'
 
 export function Home() {
   const now = useNow(1000)
@@ -27,6 +28,8 @@ export function Home() {
           <a className="btn btn-ghost btn-sq" href="#/settings" aria-label="Settings"><Icon name="gear" size={22} /></a>
         </div>
       </header>
+
+      <InstallHint />
 
       <div className="cols">
         <div className="col">

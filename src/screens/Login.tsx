@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { Label } from '../components/ui'
+import { InstallHint } from '../components/InstallHint'
 
 export function Login() {
   const [email, setEmail] = useState('')
@@ -35,13 +36,14 @@ export function Login() {
   }
 
   return (
-    <div className="main" style={{ paddingBottom: 40 }}>
+    <div className="main"><div className="screen" style={{ paddingBottom: 40 }}>
       <div className="page" style={{ maxWidth: 420, paddingTop: '12vh' }}>
         <div className="hero-light" />
         <div style={{ textAlign: 'center' }}>
           <div className="hero-word" style={{ fontSize: 48 }}>AHMED</div>
           <Label className="dim" >Operating system · v1</Label>
         </div>
+        <InstallHint always />
         <form className="panel deep stack" style={{ gap: 12 }} onSubmit={signIn}>
           <Label>Sign in</Label>
           <input className="field" type="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
@@ -54,6 +56,6 @@ export function Login() {
           {msg && <p className="small muted" style={{ textAlign: 'center' }}>{msg}</p>}
         </form>
       </div>
-    </div>
+    </div></div>
   )
 }
