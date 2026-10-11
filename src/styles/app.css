@@ -1,7 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html, body, #root { margin: 0; height: 100%; }
 /* App shell: the page itself never scrolls, bounces or drifts sideways; each screen scrolls inside. */
-html, body { overflow: hidden; overscroll-behavior: none; position: fixed; inset: 0; }
+html, body { overflow: hidden; overscroll-behavior: none; }
 body { -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; }
 input, textarea, [contenteditable] { -webkit-user-select: text; user-select: text; }
 html { -webkit-text-size-adjust: 100%; }
@@ -72,10 +72,10 @@ p { margin: 0; }
 
 /* tab bar (phone) */
 .tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; height: calc(var(--tabbar-h) + var(--tabbar-pad));
-  padding: 6px 6px var(--tabbar-pad); display: grid; grid-template-columns: repeat(6, 1fr);
+  padding: 0 4px var(--tabbar-pad); display: grid; grid-template-columns: repeat(6, 1fr);
   background: rgba(0,0,0,.92); border-top: 1px solid rgba(255,255,255,.08); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
-.tab { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; color: var(--dim); min-height: 44px; }
-.tab .label { font-size: 9px; letter-spacing: 0.12em; color: inherit; }
+.tab { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; padding-top: 6px; color: var(--dim); height: var(--tabbar-h); }
+.tab .label { font-size: 10px; letter-spacing: 0.1em; color: inherit; }
 .tab.on { color: var(--text-strong); }
 .tab.on .label { text-shadow: var(--glow-text-soft); }
 .tab:not(.on) .icon-glow { filter: none; }
@@ -237,7 +237,7 @@ input[type=date].field { color-scheme: dark; }
   .sidebar { display: flex; position: fixed; top: 0; bottom: 0; left: 0; width: 220px; z-index: 30; flex-direction: column; gap: 6px;
     padding: 28px 16px; border-right: 1px solid rgba(255,255,255,.08); background: rgba(0,0,0,.92); }
   .sidebar .brand { font: 900 22px/1 var(--f-display); color: #fff; text-shadow: var(--glow-text-hero); padding: 0 12px 26px; letter-spacing: .04em; }
-  .sidebar .tab { flex-direction: row; justify-content: flex-start; gap: 14px; padding: 12px; border-radius: 12px; }
+  .sidebar .tab { flex-direction: row; justify-content: flex-start; gap: 14px; padding: 12px; border-radius: 12px; height: auto; }
   .sidebar .tab .label { font-size: 11px; }
   .sidebar .tab.on { background: rgba(255,255,255,.04); border: 1px solid var(--line); }
   .main { left: 220px; }

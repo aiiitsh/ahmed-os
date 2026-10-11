@@ -41,7 +41,7 @@
   --r-btn: 14px;
   --gutter: 20px;
   --gap: 18px;
-  /* Tab bar: native iOS proportions. The pad hugs the home indicator instead of clearing all 34px of it. */
-  --tabbar-h: 52px;
-  --tabbar-pad: max(6px, calc(env(safe-area-inset-bottom) - 12px));
+  /* Tab bar: Apple's spec. 49pt bar + the home-indicator inset (34pt on iPhone 15). */
+  --tabbar-h: 49px;
+  --tabbar-pad: env(safe-area-inset-bottom, 0px);
 }

@@ -214,7 +214,7 @@ function Screens({ route, children }: { route: Route; children: (r: Route) => Re
 function TabLink({ t, on }: { t: { r: Route; icon: string; label: string }; on: boolean }) {
   return (
     <a className={`tab${on ? ' on' : ''}`} href={`#/${t.r}`} aria-current={on ? 'page' : undefined} style={{ textDecoration: 'none' }}>
-      <Icon name={t.icon} size={22} />
+      <Icon name={t.icon} size={24} />
       <span className="label">{t.label}</span>
     </a>
   )
