@@ -2,9 +2,10 @@
 import { get, newId, patchApp, putJuz, putRows, putTarget, removeRow, set, uid } from './store'
 import { toast } from './toast'
 import { hhmm, localDate, minutesBetween, nowIso, fmtDur } from './time'
-import { CARDIO, DAYS, EX, STRETCH_LABEL, nextDay, type Sport } from '../data/program'
-import { progress } from './progression'
-import type { ActiveSession, DayCode, Feel, FocusBlock, HabitEntry, Juz, Log, LogType, SleepRow, StepState, Target, Workout, WorkoutSet } from './types'
+import { CARDIO, DAYS, EX, SWIM_DEFAULT, isSecs, nextDay, type Sport } from '../data/program'
+import { nextSwim, progress, type SwimDone } from './progression'
+import { WAKE_LABEL, segMinutes } from './sleep'
+import type { ActiveSession, DayCode, Feel, FocusBlock, HabitEntry, Juz, Log, LogType, SleepSeg, StepState, Target, Workout, WorkoutSet } from './types'
 
 // ---------- generic logs ----------
 
@@ -20,24 +21,6 @@ export const logCardio = (sport: Sport, variant: string, minutes: number) => {
   addLog('cardio', { sport, variant, minutes }, `${CARDIO[sport].label} · ${v} · ${minutes} min`)
 }
 
-export const logStretch = (which: string) => addLog('stretch', { which }, `Stretch · ${STRETCH_LABEL[which] ?? which}`)
-
-export const flagBack = () => addLog('flag', { which: 'lower_back_tight' }, 'Lower back tight · noted')
-
-export function proteinToday(): Log | undefined {
-  const today = localDate()
-  return get().logs.find((l) => l.type === 'protein' && l.local_date === today)
-}
-
-export function logProtein() {
-  const existing = proteinToday()
-  if (existing) {
-    toast('Protein already logged today', () => removeRow('logs', existing.id))
-    return
-  }
-  addLog('protein', { hit: true }, 'Protein hit ✓')
-}
-
 export const logBodyweight = (kg: number) => addLog('bodyweight', { kg: Math.round(kg * 10) / 10 }, `Bodyweight · ${kg.toFixed(1)} kg`)
 
 export function deleteEntry(kind: 'logs' | 'sleep' | 'workouts' | 'focus', id: string) {
@@ -45,45 +28,93 @@ export function deleteEntry(kind: 'logs' | 'sleep' | 'workouts' | 'focus', id: s
   toast('Deleted')
 }
 
-// ---------- sleep ----------
+// ---------- sleep (any number of Sleep → Woke up per day) ----------
 
-export function goingToBed() {
+export function goToSleep() {
   const prev = get().appState?.pending_bed_at ?? null
   const at = nowIso()
   patchApp({ pending_bed_at: at })
-  toast(`Going to bed · ${hhmm(at)}`, () => patchApp({ pending_bed_at: prev }))
+  toast(`Sleep · ${hhmm(at)}`, () => patchApp({ pending_bed_at: prev }))
 }
 
 export function wokeUp() {
   const app = get().appState
   if (!app) return
   const now = nowIso()
-  const today = localDate(now)
-  const prevRow = get().sleep.find((s) => s.wake_date === today)
   const bed = app.pending_bed_at
-  const valid = bed && minutesBetween(bed, now) > 0 && minutesBetween(bed, now) <= 16 * 60
-  const row: SleepRow = {
-    id: prevRow?.id ?? newId(), user_id: app.user_id, wake_date: today,
-    bed_at: valid ? bed : prevRow?.bed_at ?? null,
-    wake_at: now,
-    minutes: valid ? Math.round(minutesBetween(bed!, now)) : prevRow?.minutes ?? null,
-  }
-  putRows('sleep', [row], 'user_id,wake_date')
-  if (valid) patchApp({ pending_bed_at: null })
-  toast(valid ? `Woke up · slept ${fmtDur(row.minutes!)}` : `Woke up · ${hhmm(now)}`, () => {
-    if (prevRow) putRows('sleep', [prevRow], 'user_id,wake_date')
-    else removeRow('sleep', row.id)
-    if (valid) patchApp({ pending_bed_at: bed })
+  const valid = !!bed && minutesBetween(bed, now) > 0 && minutesBetween(bed, now) <= 16 * 60
+  const seg: SleepSeg = { id: newId(), user_id: app.user_id, start_at: valid ? bed : null, end_at: now, wake_reason: null }
+  putRows('sleep', [seg])
+  if (bed) patchApp({ pending_bed_at: null })
+  const mins = segMinutes(seg)
+  toast(mins != null ? `Woke up · slept ${fmtDur(mins)}` : `Woke up · ${hhmm(now)}`, () => {
+    removeRow('sleep', seg.id)
+    if (bed) patchApp({ pending_bed_at: bed })
   })
 }
 
+export function setWakeReason(seg: SleepSeg, reason: string | null) {
+  putRows('sleep', [{ ...seg, wake_reason: reason }])
+  if (reason) toast(`Woke up · ${WAKE_LABEL[reason] ?? reason}`, () => putRows('sleep', [seg]))
+}
+
 /** ±15 min fixes from Review. */
-export function shiftSleep(row: SleepRow, field: 'bed_at' | 'wake_at', deltaMin: number) {
-  const base = row[field] ?? (field === 'bed_at' && row.wake_at ? new Date(new Date(row.wake_at).getTime() - 8 * 3600000).toISOString() : null)
+export function shiftSleep(seg: SleepSeg, field: 'start_at' | 'end_at', deltaMin: number) {
+  const base = seg[field] ?? (field === 'start_at' ? new Date(new Date(seg.end_at).getTime() - 8 * 3600000).toISOString() : null)
   if (!base) return
-  const next = { ...row, [field]: new Date(new Date(base).getTime() + deltaMin * 60000).toISOString() }
-  next.minutes = next.bed_at && next.wake_at ? Math.round(minutesBetween(next.bed_at, next.wake_at)) : null
-  putRows('sleep', [next], 'user_id,wake_date')
+  putRows('sleep', [{ ...seg, [field]: new Date(new Date(base).getTime() + deltaMin * 60000).toISOString() }])
+}
+
+export function deleteSleep(seg: SleepSeg) {
+  removeRow('sleep', seg.id)
+  toast('Sleep entry deleted', () => putRows('sleep', [seg]))
+}
+
+// ---------- swim ----------
+
+export function swimPlan() {
+  return get().appState?.settings?.swim ?? SWIM_DEFAULT
+}
+
+/** Manual swim entry (done after the session); sets the next rest time and target. */
+export function logSwim(done: SwimDone, daysAgo = 0) {
+  const app = get().appState
+  if (!app) return
+  const at = new Date(Date.now() - daysAgo * 86400000).toISOString()
+  const prevSettings = app.settings
+  const cur = swimPlan()
+  const next = nextSwim(cur, done)
+  const log: Log = {
+    id: newId(), user_id: app.user_id, logged_at: at, local_date: localDate(at), type: 'cardio',
+    data: { sport: 'swim', variant: 'sprints', minutes: done.minutes, intensity: done.intensity, rest_s: done.rest_s, target_min: cur.target_min },
+  }
+  putRows('logs', [log])
+  patchApp({ settings: { ...app.settings, swim: next } })
+  toast(`Swim saved · next: rest ${next.rest_s} s, aim ${next.target_min} min`, () => {
+    removeRow('logs', log.id)
+    patchApp({ settings: prevSettings })
+  })
+}
+
+// ---------- daily core & posture routine ----------
+
+export function routineToday(): Log | undefined {
+  const today = localDate()
+  return get().logs.find((l) => l.type === 'stretch' && l.data.which === 'daily_routine' && l.local_date === today)
+}
+
+export function logRoutine() {
+  const done = routineToday()
+  if (done) { toast('Routine already done today', () => removeRow('logs', done.id)); return }
+  addLog('stretch', { which: 'daily_routine' }, 'Core & posture routine ✓')
+}
+
+export function setStreakStart(date: string | null) {
+  const app = get().appState
+  if (!app) return
+  const prev = app.settings
+  patchApp({ settings: { ...app.settings, streak_start: date ?? undefined } })
+  toast(date ? `Counting clean days from ${date}` : 'Start date cleared', () => patchApp({ settings: prev }))
 }
 
 // ---------- quran ----------
@@ -192,11 +223,11 @@ export function focusStop() {
 
 // ---------- streak ----------
 
-export function saveHabit(date: string, count: number, reason: string | null) {
+export function saveHabit(date: string, count: number, reason: string | null, porn = false) {
   const prev = get().habits.find((h) => h.entry_date === date)
   const now = nowIso()
   const row: HabitEntry = {
-    id: prev?.id ?? newId(), user_id: uid(), entry_date: date, count: Math.max(0, count),
+    id: prev?.id ?? newId(), user_id: uid(), entry_date: date, count: Math.max(0, count), porn: count > 0 && porn,
     reason: reason?.trim() ? reason.trim() : null, created_at: prev?.created_at ?? now, updated_at: now,
   }
   putRows('habits', [row], 'user_id,entry_date')
@@ -295,7 +326,7 @@ export interface FinishSummary {
 
 function fmtTarget(key: string, w: number | null, r: number) {
   const e = EX[key]
-  const unit = e.kind === 'timed' ? ' s' : ''
+  const unit = isSecs(e) ? ' s' : ''
   return w != null ? `${w} kg × ${r}` : `${r}${unit}`
 }
 

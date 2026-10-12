@@ -1,6 +1,7 @@
 import { EX, GOALS, GROUPS } from '../data/program'
 import type { Data } from './store'
-import type { Group, HabitEntry, Log, SleepRow, Workout, WorkoutSet, FocusBlock } from './types'
+import type { Group, HabitEntry, Log, Workout, WorkoutSet, FocusBlock } from './types'
+import { groupNights, type Night } from './sleep'
 import { addDays, daysBetween, dow, inWeek, localDate, localMinutes, minutesBetween, weekDays } from './time'
 
 // ---------- muscle credit ----------
@@ -47,16 +48,22 @@ const sd = (xs: number[]) => {
   return Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / xs.length)
 }
 
-export function sleepStats(rows: SleepRow[]) {
-  const beds = rows.filter((r) => r.bed_at).map((r) => bedMinutes(r.bed_at!))
-  const wakes = rows.filter((r) => r.wake_at).map((r) => localMinutes(r.wake_at!))
-  const mins = rows.filter((r) => r.minutes != null).map((r) => r.minutes!)
+export function sleepStats(nights: Night[]) {
+  const withSleep = nights.filter((n) => n.asleep > 0)
+  const beds = withSleep.filter((n) => n.bed).map((n) => bedMinutes(n.bed!))
+  const wakes = withSleep.filter((n) => n.wake).map((n) => localMinutes(n.wake!))
+  const naps = nights.flatMap((n) => n.naps)
   return {
-    nights: mins.length,
-    avgMinutes: mean(mins),
+    nights: withSleep.length,
+    avgMinutes: mean(withSleep.map((n) => n.asleep)),
     avgBed: mean(beds),
     avgWake: mean(wakes),
     bedSpread: sd(beds),
+    avgWakings: mean(withSleep.map((n) => n.wakings)),
+    wakings: withSleep.reduce((a, n) => a + n.wakings, 0),
+    reasons: withSleep.flatMap((n) => n.reasons),
+    naps: naps.length,
+    napMinutes: nights.reduce((a, n) => a + n.napMinutes, 0),
   }
 }
 
@@ -79,10 +86,12 @@ export function focusStats(blocks: FocusBlock[]) {
 
 // ---------- streak (habit) ----------
 
-export function habitStats(entries: HabitEntry[], today = localDate()) {
+/** `start`: the first clean day being counted (Settings → streak_start), used before any entries exist. */
+export function habitStats(entries: HabitEntry[], today = localDate(), start?: string) {
   const sorted = [...entries].sort((a, b) => a.entry_date.localeCompare(b.entry_date))
   const positives = sorted.filter((e) => e.count > 0).map((e) => e.entry_date)
-  const first = sorted[0]?.entry_date
+  const firstEntry = sorted[0]?.entry_date
+  const first = start && start <= today && (!firstEntry || start < firstEntry) ? start : firstEntry
   let current = 0
   if (positives.length) {
     const last = positives[positives.length - 1]
@@ -104,7 +113,8 @@ export function habitStats(entries: HabitEntry[], today = localDate()) {
   const topWd = wdCount.some((x) => x > 0) ? wdCount.indexOf(Math.max(...wdCount)) : null
 
   return {
-    current, best, hasAny: sorted.length > 0,
+    current, best, hasAny: sorted.length > 0 || !!first,
+    pornDaysMonth: sorted.filter((e) => e.entry_date.startsWith(month) && e.count > 0 && e.porn).length,
     monthTimes: monthRows.reduce((a, e) => a + e.count, 0),
     monthDays: monthRows.length,
     avgPerWeek: last8 / 8,
@@ -133,7 +143,7 @@ export function weekStats(data: Data, start: string) {
   const wIds = new Set(workouts.map((w) => w.id))
   const sets = data.sets.filter((s) => wIds.has(s.workout_id))
   const logs = wk(data.logs, (l) => l.local_date)
-  const sleep = wk(data.sleep, (s) => s.wake_date)
+  const sleep = groupNights(data.sleep).filter((n) => inWeek(n.date, start))
   const focus = wk(data.focus, (f) => f.local_date)
   const byType = (t: string) => logs.filter((l) => l.type === t)
 
@@ -165,7 +175,9 @@ export function weekStats(data: Data, start: string) {
     workouts, sets, byDayCode, groups,
     cardio: byType('cardio'),
     stretches: byType('stretch'),
-    hipFlexor: byType('stretch').filter((l) => l.data.which === 'hip_flexors').length,
+    hipFlexor: byType('stretch').filter((l) => l.data.which === 'hip_flexors' || l.data.which === 'daily_routine').length,
+    routineDays: new Set(byType('stretch').filter((l) => l.data.which === 'daily_routine').map((l) => l.local_date)).size,
+    swims: byType('cardio').filter((l) => l.data.sport === 'swim'),
     flags: byType('flag'),
     proteinDays: new Set(byType('protein').map((l) => l.local_date)).size,
     bodyweight: { last: bwIn.at(-1)?.data.kg ?? null, before: bwBefore.at(-1)?.data.kg ?? null },
@@ -197,14 +209,28 @@ export function insights(w: WeekStats, prev: WeekStats, extra: { streak?: { now:
   else if (g.push > 1.6 * g.pull && g.push > 0) out.push({ bad: true, text: `Push ${fmt1(g.push)} vs pull ${fmt1(g.pull)}: push-heavy. Tight chest, so watch it.` })
   else if (g.push + g.pull > 0) out.push({ bad: false, text: `Push/pull balanced (${fmt1(g.push)} / ${fmt1(g.pull)}).` })
   if (g.posterior === 0 || w.byDayCode.C === 0) out.push({ bad: true, text: 'No posture day. Hamstrings and glutes hold your pelvis.' })
-  if (g.core < 8) out.push({ bad: true, text: `Core got ${sets(g.core)}. Aim for 8–14 to stand tall.` })
-  if (w.hipFlexor < 2) out.push({ bad: true, text: `Hip flexor stretch ${w.hipFlexor}×. Do it at least 2× a week for APT.` })
+  out.push(g.core < 14
+    ? { bad: true, text: `Core got ${sets(g.core)}. Core is priority #1: aim for 14–24.` }
+    : { bad: false, text: `Core got ${sets(g.core)}. On target.` })
+  out.push(w.routineDays < 5
+    ? { bad: true, text: `Daily core & posture routine on ${w.routineDays}/7 days. Aim for 5+.` }
+    : { bad: false, text: `Daily core & posture routine on ${w.routineDays}/7 days.` })
+  if (w.hipFlexor < 2) out.push({ bad: true, text: `Hip flexors stretched ${w.hipFlexor}×. At least 2× a week for APT.` })
   if (w.sl.avgMinutes != null && w.sl.avgMinutes < 7 * 60) out.push({ bad: true, text: `Sleep averaged ${(w.sl.avgMinutes / 60).toFixed(1)} h. Target 7.5–8.5 h.` })
   else if (w.sl.avgMinutes != null) out.push({ bad: false, text: `Sleep averaged ${(w.sl.avgMinutes / 60).toFixed(1)} h.` })
   if (w.sl.bedSpread != null && w.sl.bedSpread > 90) out.push({ bad: true, text: `Bedtime spread ${Math.round(w.sl.bedSpread)} min. Keep it under 60.` })
+  if (w.sl.avgWakings != null && w.sl.avgWakings >= 1.5) {
+    const pee = w.sl.reasons.filter((r) => r === 'pee').length
+    out.push({ bad: true, text: `Woke up ${w.sl.avgWakings.toFixed(1)}× a night on average${pee ? ` (${pee}× to pee: try less fluid in the last 2 h)` : ''}.` })
+  }
+  if (w.sl.naps) out.push({ bad: false, text: `${w.sl.naps} nap${w.sl.naps === 1 ? '' : 's'}, ${Math.round(w.sl.napMinutes)} min total.` })
+  const longest = (xs: Log[]) => Math.max(0, ...xs.map((l) => Number(l.data.minutes) || 0))
+  if (w.swims.length || prev.swims.length) {
+    const a = longest(w.swims), b = longest(prev.swims)
+    out.push({ bad: a < b, text: `Longest swim ${a} min (last week ${b}). ${w.swims.length} swim${w.swims.length === 1 ? '' : 's'}.` })
+  }
   if (w.hardPct > 0.5) out.push({ bad: true, text: 'Lots of Hard. Hold weights next week / deload.' })
   if (w.flags.length >= 2) out.push({ bad: true, text: `Back felt tight ${w.flags.length} times. Check which days.` })
-  if (w.proteinDays < 4) out.push({ bad: true, text: `Protein hit on ${w.proteinDays} days. Mass gain is mostly food: aim for 5+.` })
   if (w.quranDays < 5) out.push({ bad: true, text: `Quran on ${w.quranDays}/7 days.` })
   else out.push({ bad: false, text: `Quran on ${w.quranDays}/7 days.` })
   if (w.frenchMin < 90) out.push({ bad: true, text: `French ${w.frenchMin} min. Target is 150.` })
@@ -228,11 +254,10 @@ export { fmt1 }
 
 export function reminders(data: Data, today = localDate()): string[] {
   const out: string[] = []
-  const hip = data.logs.filter((l) => l.type === 'stretch' && l.data.which === 'hip_flexors').map((l) => l.local_date).sort()
+  const hip = data.logs.filter((l) => l.type === 'stretch' && (l.data.which === 'hip_flexors' || l.data.which === 'daily_routine')).map((l) => l.local_date).sort()
   const lastHip = hip.at(-1)
   const since = lastHip ? daysBetween(lastHip, today) : null
-  if (since == null) out.push('Hip flexors: not logged yet')
-  else if (since >= 3) out.push(`Hip flexors: ${since} days`)
+  if (since != null && since >= 3) out.push(`Hip flexors: ${since} days`)
   const wd = dow(today)
   const start = addDays(today, -((wd - 6 + 7) % 7))
   if ((wd === 4 || wd === 5) && !data.workouts.some((w) => w.day_code === 'C' && inWeek(w.local_date, start))) {

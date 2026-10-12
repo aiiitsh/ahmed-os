@@ -3,18 +3,70 @@ import { create } from 'zustand'
 import { Icon } from './Icon'
 import { Sheet, Stepper, Label } from './ui'
 import { JuzGrid, dueJuz } from './Quran'
-import { CARDIO, DURATIONS, FRENCH_ACTIVITIES, FRENCH_MINUTES, STRETCHES, type Sport } from '../data/program'
-import { flagBack, logCardio, logFrench, logProtein, logStretch, proteinToday, quranTap, saveHabit, startFocus } from '../lib/actions'
+import { CARDIO, DAILY_ROUTINE, DURATIONS, FRENCH_ACTIVITIES, FRENCH_MINUTES, SWIM_INTENSITY } from '../data/program'
+import { logCardio, logFrench, logRoutine, logSwim, quranTap, routineToday, startFocus, swimPlan } from '../lib/actions'
+import type { SwimDone } from '../lib/progression'
 import { useStore } from '../lib/store'
-import { localDate, hhmm, fmtStopwatch } from '../lib/time'
+import { localDate } from '../lib/time'
 
-export type SheetKey = Sport | 'stretch' | 'quran' | 'french' | 'focus' | 'streak'
+export type SheetKey = 'swim' | 'run' | 'squash' | 'routine' | 'quran' | 'french' | 'focus'
 
 export const useSheet = create<{ open: SheetKey | null }>(() => ({ open: null }))
 export const openSheet = (k: SheetKey) => useSheet.setState({ open: k })
 const close = () => useSheet.setState({ open: null })
 
-function CardioSheet({ sport }: { sport: Sport }) {
+/** Segmented picker (one choice). */
+export function Segmented<T extends string>({ value, options, onChange, warn }: {
+  value: T; options: [T, string][]; onChange: (v: T) => void; warn?: T
+}) {
+  return (
+    <div className="seg" role="radiogroup">
+      {options.map(([k, label]) => (
+        <button key={k} role="radio" aria-checked={value === k} className={`seg-btn${value === k ? (warn === k ? ' on red' : ' on') : ''}`} onClick={() => onChange(k)}>
+          {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+function SwimSheet() {
+  const plan = useStore((s) => s.appState?.settings?.swim) ?? swimPlan()
+  const [daysAgo, setDaysAgo] = useState(0)
+  const [minutes, setMinutes] = useState(plan.target_min)
+  const [rest, setRest] = useState(plan.rest_s)
+  const [intensity, setIntensity] = useState<SwimDone['intensity']>('moderate')
+  return (
+    <div className="stack" style={{ gap: 18 }}>
+      <div className="panel" style={{ padding: 14 }}>
+        <Label>Today's set</Label>
+        <p style={{ marginTop: 8, lineHeight: 1.55 }}>
+          25 m sprint on your <b>belly</b> → rest <b>{plan.rest_s} s</b> → 25 m sprint on your <b>back</b> → rest <b>{plan.rest_s} s</b>. Repeat.
+          Aim to last <b>{plan.target_min} min</b>.
+        </p>
+      </div>
+      <div className="stack" style={{ gap: 8 }}>
+        <Label>When</Label>
+        <Segmented value={String(daysAgo) as '0' | '1'} options={[['0', 'Today'], ['1', 'Yesterday']]} onChange={(v) => setDaysAgo(Number(v))} />
+      </div>
+      <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
+        <Label>How long did you last?</Label>
+        <Stepper value={`${minutes}`} sub="minutes" onMinus={() => setMinutes((m) => Math.max(1, m - 1))} onPlus={() => setMinutes((m) => m + 1)} />
+      </div>
+      <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
+        <Label>Rest you used between 25s</Label>
+        <Stepper value={`${rest}s`} sub="seconds" onMinus={() => setRest((r) => Math.max(5, r - 5))} onPlus={() => setRest((r) => r + 5)} />
+      </div>
+      <div className="stack" style={{ gap: 8 }}>
+        <Label>Intensity</Label>
+        <Segmented value={intensity} options={SWIM_INTENSITY as [SwimDone['intensity'], string][]} onChange={setIntensity} />
+      </div>
+      <button className="btn btn-filled btn-big btn-caps" onClick={() => { logSwim({ minutes, rest_s: rest, intensity }, daysAgo); close() }}>Save swim</button>
+    </div>
+  )
+}
+
+function CardioSheet({ sport }: { sport: 'run' | 'squash' }) {
   const c = CARDIO[sport]
   const [mins, setMins] = useState<number>(c.def)
   return (
@@ -35,14 +87,24 @@ function CardioSheet({ sport }: { sport: Sport }) {
   )
 }
 
-function StretchSheet() {
+function RoutineSheet() {
+  useStore((s) => s.logs)
+  const done = !!routineToday()
   return (
-    <div className="stack">
-      {STRETCHES.map(([k, label]) => (
-        <button key={k} className={`btn btn-big btn-block${k === 'hip_flexors' ? ' btn-outline' : ''}`} onClick={() => { logStretch(k); close() }}>
-          <Icon name={k === 'hip_flexors' ? 'hipflexor' : k === 'chest' ? 'cheststretch' : 'stretch'} size={22} /> {label}
-        </button>
-      ))}
+    <div className="stack" style={{ gap: 14 }}>
+      <p className="muted small">Every day, about 6 minutes. Slow and controlled, breathe out on effort.</p>
+      <div className="list">
+        {DAILY_ROUTINE.map((r) => (
+          <div key={r.name} className="li">
+            <Icon name={r.icon} size={22} />
+            <span className="grow">{r.name}</span>
+            <span className="mono small muted">{r.dose}</span>
+          </div>
+        ))}
+      </div>
+      <button className={`btn btn-big btn-caps${done ? '' : ' btn-filled'}`} onClick={() => { logRoutine(); close() }}>
+        {done ? 'Done today ✓' : 'Done'}
+      </button>
     </div>
   )
 }
@@ -97,97 +159,41 @@ function FocusSheet() {
   )
 }
 
-function StreakSheet() {
-  const [count, setCount] = useState(1)
-  return (
-    <div className="stack" style={{ gap: 18, alignItems: 'center' }}>
-      <Label>Today · {localDate()}</Label>
-      <Stepper value={count} sub="times" onMinus={() => setCount((c) => Math.max(0, c - 1))} onPlus={() => setCount((c) => c + 1)} />
-      <button className="btn btn-filled btn-big btn-block btn-caps" onClick={() => { saveHabit(localDate(), count, null); close() }}>Save</button>
-      <a className="link" href="#/streak" onClick={close}>Open Streak tab</a>
-    </div>
-  )
-}
-
 const TITLES: Record<SheetKey, string> = {
-  swim: 'Swim', run: 'Run', squash: 'Squash', stretch: 'Stretch', quran: 'Quran', french: 'French', focus: 'Focus', streak: 'Streak',
+  swim: 'Log swim', run: 'Run', squash: 'Squash', routine: 'Core & posture routine', quran: 'Quran', french: 'French', focus: 'Focus',
 }
 
 export function QuickSheets() {
   const open = useSheet((s) => s.open)
   return (
     <Sheet open={open != null} onClose={close} title={open ? TITLES[open] : undefined}>
-      {open === 'swim' || open === 'run' || open === 'squash' ? <CardioSheet key={open} sport={open} /> : null}
-      {open === 'stretch' && <StretchSheet />}
+      {open === 'swim' && <SwimSheet />}
+      {(open === 'run' || open === 'squash') && <CardioSheet key={open} sport={open} />}
+      {open === 'routine' && <RoutineSheet />}
       {open === 'quran' && <QuranSheet />}
       {open === 'french' && <FrenchSheet />}
       {open === 'focus' && <FocusSheet />}
-      {open === 'streak' && <StreakSheet />}
     </Sheet>
   )
 }
 
 // ---------- tiles ----------
 
-export function Tile({ icon, label, sub, onClick, done, small }: { icon: string; label: string; sub?: string; onClick: () => void; done?: boolean; small?: boolean }) {
+export function Tile({ icon, label, sub, onClick, done }: { icon: string; label: string; sub?: string; onClick: () => void; done?: boolean }) {
   return (
-    <button className={`tile${done ? ' done' : ''}${small ? ' small' : ''}`} onClick={onClick}>
-      <Icon name={icon} size={small ? 20 : 24} />
+    <button className={`tile${done ? ' done' : ''}`} onClick={onClick}>
+      <Icon name={icon} size={24} />
       <span className="tl">{label}</span>
-      {!small && <span className="ts">{sub || ' '}</span>}
+      <span className="ts">{sub || ' '}</span>
     </button>
   )
 }
 
-/** Sub-state text for each tile (e.g. Protein "✓ today", Quran "Juz 12 due"). */
-export function useTileSubs() {
+/** "✓ 45M" when a sport was logged today. */
+export function useCardioToday() {
   const logs = useStore((s) => s.logs)
-  const juz = useStore((s) => s.juz)
-  const focus = useStore((s) => s.appState?.focus)
-  const habits = useStore((s) => s.habits)
   const today = localDate()
-  const todays = logs.filter((l) => l.local_date === today)
-  const last = (pred: (l: (typeof logs)[number]) => boolean) => [...todays].reverse().find(pred)
-  const cardio = (sport: string) => {
-    const l = last((x) => x.type === 'cardio' && x.data.sport === sport)
-    return l ? `✓ ${l.data.minutes}M` : ''
-  }
-  const stretch = last((x) => x.type === 'stretch')
-  const french = todays.filter((l) => l.type === 'french').reduce((a, l) => a + (l.data.minutes || 0), 0)
-  const quranToday = todays.some((l) => l.type === 'quran')
-  const due = dueJuz(juz, 1)[0]
-  const hab = habits.find((h) => h.entry_date === today)
-  return {
-    swim: cardio('swim'), run: cardio('run'), squash: cardio('squash'),
-    stretch: stretch ? `✓ ${hhmm(stretch.logged_at)}` : '',
-    quran: quranToday ? '✓ today' : due ? `Juz ${due} due` : '',
-    quranDone: quranToday,
-    french: french ? `✓ ${french}M` : '',
-    focus: focus ? `${focus.mode === 'focus' ? 'ON' : 'BREAK'} ${fmtStopwatch(Date.now() - new Date(focus.started_at).getTime())}` : '',
-    protein: proteinToday() ? '✓ today' : '',
-    back: todays.some((l) => l.type === 'flag') ? '✓ noted' : '',
-    streak: hab ? '✓ logged' : '',
-  }
-}
-
-export function QuickGrid() {
-  const s = useTileSubs()
-  return (
-    <div className="stack">
-      <div className="grid4">
-        <Tile icon="swim" label="Swim" sub={s.swim} done={!!s.swim} onClick={() => openSheet('swim')} />
-        <Tile icon="run" label="Run" sub={s.run} done={!!s.run} onClick={() => openSheet('run')} />
-        <Tile icon="squash" label="Squash" sub={s.squash} done={!!s.squash} onClick={() => openSheet('squash')} />
-        <Tile icon="stretch" label="Stretch" sub={s.stretch} done={!!s.stretch} onClick={() => openSheet('stretch')} />
-        <Tile icon="quran" label="Quran" sub={s.quran} done={s.quranDone} onClick={() => openSheet('quran')} />
-        <Tile icon="french" label="French" sub={s.french} done={!!s.french} onClick={() => openSheet('french')} />
-        <Tile icon="focus" label="Focus" sub={s.focus} done={!!s.focus} onClick={() => (s.focus ? (location.hash = '#/work') : openSheet('focus'))} />
-        <Tile icon="protein" label="Protein" sub={s.protein} done={!!s.protein} onClick={logProtein} />
-      </div>
-      <div className="grid2">
-        <Tile small icon="back" label={s.back ? 'Back tight ✓' : 'Back tight'} done={!!s.back} onClick={flagBack} />
-        <Tile small icon="tab-streak" label={s.streak ? 'Streak ✓' : 'Streak'} done={!!s.streak} onClick={() => openSheet('streak')} />
-      </div>
-    </div>
-  )
+  const last = (sport: string) => [...logs].reverse().find((l) => l.local_date === today && l.type === 'cardio' && l.data.sport === sport)
+  const sub = (sport: string) => { const l = last(sport); return l ? `✓ ${l.data.minutes}M` : '' }
+  return { swim: sub('swim'), run: sub('run'), squash: sub('squash') }
 }

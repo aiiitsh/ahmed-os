@@ -4,7 +4,7 @@ import { useStore } from '../lib/store'
 import { completeStep, discardSession, finishSession, goToStep, levelUp, updateStep, type FinishSummary } from '../lib/actions'
 import { fmtStopwatch, minutesBetween } from '../lib/time'
 import { fmtW } from '../lib/format'
-import { DAYS, EX } from '../data/program'
+import { DAYS, EX, isSecs, repStep } from '../data/program'
 import type { Feel, StepState } from '../lib/types'
 import { Label, Stepper, useNow } from '../components/ui'
 import { Icon } from '../components/Icon'
@@ -108,7 +108,8 @@ function Step({ idx, st, stepStartedAt }: { idx: number; st: StepState; stepStar
   }
 
   const weighted = e.kind === 'weighted'
-  const repInc = e.kind === 'timed' ? e.step : 1
+  const repInc = repStep(e)
+  const secs = isSecs(e)
   const w = st.weight ?? null
   const r = st.reps ?? e.lo
   const feel = (f: Feel) => completeStep(idx, { done: true, feel: f })
@@ -130,16 +131,16 @@ function Step({ idx, st, stepStartedAt }: { idx: number; st: StepState; stepStar
       )}
       <div className="stack" style={{ alignItems: 'center', gap: 6, padding: '6px 0' }}>
         {target && !target.calibrated && <span className="chip on">Set your start weight</span>}
-        <div className="timer" style={{ fontSize: 52 }}>{e.sets} × {r}{e.kind === 'timed' ? 's' : ''}</div>
+        <div className="timer" style={{ fontSize: 52 }}>{e.sets} × {r}{secs ? 's' : ''}</div>
         {weighted && <div className="title" style={{ fontSize: 20 }}>@ {fmtW(w)}</div>}
-        {e.lo !== e.hi && <Label>Range {e.lo}–{e.hi}{e.kind === 'timed' ? ' s' : ''} · stop 1–2 reps before failure</Label>}
+        {e.lo !== e.hi && <Label>Range {e.lo}–{e.hi}{secs ? ' s' : ''} · stop 1–2 reps before failure</Label>}
       </div>
       <div className="row wrap" style={{ gap: 14, justifyContent: 'center' }}>
         {weighted && (
           <Stepper value={fmtW(w, false)} sub="weight" onMinus={() => updateStep(idx, { weight: Math.max(0, Math.round(((w ?? 0) - e.step) * 100) / 100) })}
             onPlus={() => updateStep(idx, { weight: Math.round(((w ?? 0) + e.step) * 100) / 100 })} />
         )}
-        <Stepper value={r} sub={e.kind === 'timed' ? 'seconds' : 'reps'} onMinus={() => updateStep(idx, { reps: Math.max(1, r - repInc) })}
+        <Stepper value={r} sub={secs ? 'seconds' : 'reps'} onMinus={() => updateStep(idx, { reps: Math.max(1, r - repInc) })}
           onPlus={() => updateStep(idx, { reps: r + repInc })} />
       </div>
       <div className="feel-row">

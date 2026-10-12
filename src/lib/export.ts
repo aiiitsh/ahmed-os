@@ -1,9 +1,10 @@
 // Section 9.5: week summary for the Friday review with Claude (plain text + JSON).
-import { DAYS, EX, GROUPS, GOALS, STRETCH_LABEL } from '../data/program'
+import { DAYS, EX, GROUPS, GOALS, STRETCH_LABEL, isSecs } from '../data/program'
 import type { Data } from './store'
 import { habitStats, insights, weekStats, fmt1, type WeekStats } from './stats'
 import { addDays, fmtClock, fmtDay, fmtDur, hhmm, localDate } from './time'
 import { describeLog } from './describe'
+import { WAKE_LABEL, segMinutes } from './sleep'
 
 export function weightChanges(data: Data, w: WeekStats) {
   const out: { key: string; name: string; from: string; to: string; dir: number }[] = []
@@ -16,7 +17,7 @@ export function weightChanges(data: Data, w: WeekStats) {
     rows.sort((a, b) => order(a.workout_id).localeCompare(order(b.workout_id)))
     const first = rows[0], last = rows[rows.length - 1]
     const t = data.targets[key]
-    const fmt = (wt: number | null, r: number | null) => (wt != null ? `${wt} kg × ${r}` : `${r}${ex.kind === 'timed' ? ' s' : ''}`)
+    const fmt = (wt: number | null, r: number | null) => (wt != null ? `${wt} kg × ${r}` : `${r}${isSecs(ex) ? ' s' : ''}`)
     const toW = last.next_weight_kg ?? t?.weight_kg ?? null
     const toR = last.next_reps ?? t?.reps ?? null
     const dw = (toW ?? 0) - (first.weight_kg ?? 0)
@@ -72,9 +73,17 @@ export function buildJson(data: Data, start: string) {
       hip_flexor_count: w.hipFlexor,
       lower_back_flags: w.flags.map((l) => ({ date: l.local_date, time: hhmm(l.logged_at) })),
     },
-    nutrition: { protein_days: w.proteinDays, bodyweight_kg: w.bodyweight.last, bodyweight_prev_kg: w.bodyweight.before },
+    nutrition: { bodyweight_kg: w.bodyweight.last, bodyweight_prev_kg: w.bodyweight.before },
+    routine_days: w.routineDays,
     sleep: {
-      nights: w.sleep.map((s) => ({ wake_date: s.wake_date, bed: s.bed_at ? hhmm(s.bed_at) : null, wake: s.wake_at ? hhmm(s.wake_at) : null, minutes: s.minutes })),
+      nights: w.sleep.map((n) => ({
+        date: n.date, bed: n.bed ? hhmm(n.bed) : null, final_wake: n.wake ? hhmm(n.wake) : null, asleep_min: n.asleep,
+        wakings: n.wakings, awake_min: Math.round(n.awake), wake_reasons: n.reasons,
+        segments: n.segments.map((g) => ({ from: g.start_at ? hhmm(g.start_at) : null, to: hhmm(g.end_at), min: segMinutes(g), reason: g.wake_reason })),
+        naps: n.naps.map((g) => ({ from: hhmm(g.start_at!), to: hhmm(g.end_at), min: segMinutes(g) })),
+      })),
+      avg_wakings: w.sl.avgWakings != null ? +w.sl.avgWakings.toFixed(1) : null,
+      naps: w.sl.naps, nap_minutes: Math.round(w.sl.napMinutes),
       avg_hours: w.sl.avgMinutes != null ? +(w.sl.avgMinutes / 60).toFixed(2) : null,
       avg_bed: w.sl.avgBed != null ? fmtClock(w.sl.avgBed) : null,
       avg_wake: w.sl.avgWake != null ? fmtClock(w.sl.avgWake) : null,
@@ -114,7 +123,7 @@ export function buildText(data: Data, start: string): string {
       const ex = EX[s.exercise_key]
       if (s.skipped) { L.push(`  - ${s.name_used}: skipped`); continue }
       if (ex?.kind === 'stretch') { L.push(`  - ${s.name_used}: done`); continue }
-      const unit = ex?.kind === 'timed' ? 's' : ''
+      const unit = ex && isSecs(ex) ? 's' : ''
       const load = s.weight_kg != null ? ` @ ${s.weight_kg} kg` : ''
       const next = s.next_reps != null ? ` → next ${s.next_weight_kg != null ? `${s.next_weight_kg} kg × ` : ''}${s.next_reps}${unit}` : ''
       L.push(`  - ${s.name_used}: ${s.sets}×${s.reps}${unit}${load} · ${s.feel?.toUpperCase() ?? '-'}${next}`)
@@ -128,15 +137,22 @@ export function buildText(data: Data, start: string): string {
   L.push('', 'Skills: ' + Object.values(sk).filter((s) => s.active).map((s) => `${s.name} Lvl ${s.level} ${s.level_name} ${s.pct}%`).join('; '))
 
   h('Cardio & posture')
+  const sw = data.appState?.settings?.swim
+  if (sw) L.push(`Swim plan: 25 m sprints belly/back, rest ${sw.rest_s} s, aim ${sw.target_min} min.`)
   L.push(w.cardio.length ? w.cardio.map((l) => `${fmtDay(l.local_date)} ${describeLog(l).text}`).join('\n') : 'No cardio logged.')
   L.push(`Stretches: ${w.stretches.length} (${w.stretches.map((l) => STRETCH_LABEL[l.data.which] ?? l.data.which).join(', ') || 'none'}). Hip flexors: ${w.hipFlexor}×.`)
   L.push(`Lower back felt tight: ${w.flags.length}×${w.flags.length ? ` (${w.flags.map((l) => fmtDay(l.local_date)).join(', ')})` : ''}.`)
-  L.push(`Protein hit days: ${w.proteinDays}/7.`)
+  L.push(`Daily core & posture routine: ${w.routineDays}/7 days.`)
   L.push(`Bodyweight: ${w.bodyweight.last != null ? `${w.bodyweight.last} kg` : 'not logged'}${w.bodyweight.before != null ? ` (previous ${w.bodyweight.before} kg)` : ''}.`)
 
   h('Sleep')
   L.push(`Avg ${w.sl.avgMinutes != null ? fmtDur(w.sl.avgMinutes) : '—'} · bed ${w.sl.avgBed != null ? fmtClock(w.sl.avgBed) : '—'} · wake ${w.sl.avgWake != null ? fmtClock(w.sl.avgWake) : '—'} · bedtime spread ${w.sl.bedSpread != null ? Math.round(w.sl.bedSpread) + ' min' : '—'} (target 7.5–8.5 h, spread < 60)`)
-  for (const s of w.sleep) L.push(`  - ${fmtDay(s.wake_date)}: bed ${s.bed_at ? hhmm(s.bed_at) : '?'} → wake ${s.wake_at ? hhmm(s.wake_at) : '?'} (${s.minutes != null ? fmtDur(s.minutes) : '?'})`)
+  L.push(`Night wake-ups: ${w.sl.avgWakings != null ? w.sl.avgWakings.toFixed(1) : '—'} per night (${w.sl.wakings} total${w.sl.reasons.length ? `; reasons: ${w.sl.reasons.map((r) => WAKE_LABEL[r] ?? r).join(', ')}` : ''}). Naps: ${w.sl.naps} (${Math.round(w.sl.napMinutes)} min).`)
+  for (const n of w.sleep) {
+    const parts = n.segments.map((g) => `${g.start_at ? hhmm(g.start_at) : '?'}–${hhmm(g.end_at)}${g.wake_reason ? ` (${WAKE_LABEL[g.wake_reason] ?? g.wake_reason})` : ''}`).join(', ')
+    const naps = n.naps.length ? ` · naps ${n.naps.map((g) => `${hhmm(g.start_at!)}–${hhmm(g.end_at)}`).join(', ')}` : ''
+    L.push(`  - ${fmtDay(n.date)}: ${fmtDur(n.asleep)} asleep, woke ${n.wakings}× · ${parts || 'no night sleep'}${naps}`)
+  }
 
   h('Focus')
   L.push(`Total ${fmtDur(w.fo.total)} (target ${GOALS.focusHours} h) · ${w.fo.blocks} blocks · longest ${Math.round(w.fo.longest)} min · avg ${Math.round(w.fo.average)} min · rest ${fmtDur(w.fo.rest)} · lost focus ${w.fo.lost}×`)

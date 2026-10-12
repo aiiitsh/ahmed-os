@@ -2,14 +2,14 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { weekStats, fmt1 } from '../lib/stats'
 import { addDays, fmtDay, localDate, weekStart } from '../lib/time'
-import { adjustTarget, bumpSkillPct, flagBack, levelUp, logBodyweight, logProtein, startSession } from '../lib/actions'
+import { adjustTarget, bumpSkillPct, levelUp, logBodyweight, startSession, swimPlan } from '../lib/actions'
 import { fmtW } from '../lib/format'
-import { DAYS, EX, EXERCISES, GROUPS } from '../data/program'
+import { DAYS, EX, EXERCISES, GROUPS, isSecs, repStep, type Exercise } from '../data/program'
 import type { DayCode } from '../lib/types'
 import { Bar, Label, Sparkline, Stepper } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { BodyMap } from '../components/BodyMap'
-import { Tile, openSheet, useTileSubs } from '../components/QuickLog'
+import { Tile, openSheet, useCardioToday } from '../components/QuickLog'
 
 export function Body() {
   const data = useStore()
@@ -55,7 +55,7 @@ export function Body() {
       <div className="cols c2">
         <NextPreview />
         <div className="col">
-          <CardioPosture />
+          <Cardio />
           <Skills />
         </div>
       </div>
@@ -66,6 +66,14 @@ export function Body() {
       </div>
     </div>
   )
+}
+
+/** "3×12 · 10 KG", "3×30S", "3×30S · 16 KG" */
+function targetText(e: Exercise, w: number | null | undefined, r: number | undefined) {
+  if (e.kind === 'skill') return 'THENX'
+  if (e.kind === 'stretch') return `${e.sets}×${e.lo}S`
+  const reps = `${e.sets}×${r ?? e.lo}${isSecs(e) ? 'S' : ''}`
+  return e.kind === 'weighted' ? `${reps} · ${fmtW(w ?? e.start)}` : reps
 }
 
 function NextPreview() {
@@ -88,11 +96,7 @@ function NextPreview() {
         {day.keys.map((k) => {
           const e = EX[k]
           const t = targets[k]
-          let tgt = ''
-          if (e.kind === 'skill') tgt = 'THENX'
-          else if (e.kind === 'stretch') tgt = `${e.sets}×${e.lo}S`
-          else if (e.kind === 'timed') tgt = `${e.sets}×${t?.reps ?? e.lo}S`
-          else tgt = `${e.sets}×${t?.reps ?? e.lo}${e.kind === 'weighted' ? ` · ${fmtW(t?.weight_kg ?? e.start)}` : ''}`
+          const tgt = targetText(e, t?.weight_kg, t?.reps)
           return (
             <div key={k} className="li">
               <Icon name={e.icon} size={22} />
@@ -107,18 +111,54 @@ function NextPreview() {
   )
 }
 
-function CardioPosture() {
-  const s = useTileSubs()
+function Cardio() {
+  const s = useCardioToday()
+  const logs = useStore((st) => st.logs)
+  useStore((st) => st.appState?.settings?.swim)
+  const plan = swimPlan()
+  const swims = logs.filter((l) => l.type === 'cardio' && l.data.sport === 'swim').sort((a, b) => a.logged_at.localeCompare(b.logged_at))
+  const recent = swims.slice(-5).reverse()
   return (
     <section className="stack">
-      <Label>Cardio & posture</Label>
-      <div className="grid3">
-        <Tile icon="swim" label="Swim" sub={s.swim} done={!!s.swim} onClick={() => openSheet('swim')} />
+      <Label>Cardio</Label>
+      <div className="panel stack" style={{ gap: 12, padding: 16 }}>
+        <div className="row between">
+          <div className="row" style={{ gap: 10 }}>
+            <Icon name="swim" size={26} />
+            <div className="stack" style={{ gap: 3 }}>
+              <span className="strong">Next swim</span>
+              <span className="label">25 m sprints · belly then back</span>
+            </div>
+          </div>
+          {s.swim && <span className="chip on sm">{s.swim}</span>}
+        </div>
+        <div className="grid2">
+          <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{plan.rest_s}s</span><Label>Rest between 25s</Label></div>
+          <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{plan.target_min} min</span><Label>Aim to last</Label></div>
+        </div>
+        {swims.length > 1 && (
+          <div className="stack" style={{ gap: 4 }}>
+            <Label>Minutes lasted · last {Math.min(10, swims.length)}</Label>
+            <Sparkline values={swims.slice(-10).map((l) => Number(l.data.minutes) || null)} height={40} />
+          </div>
+        )}
+        {recent.length > 0 && (
+          <div className="list">
+            {recent.map((l) => (
+              <div key={l.id} className="li" style={{ minHeight: 36, padding: '8px 0' }}>
+                <span className="mono small" style={{ width: 92 }}>{fmtDay(l.local_date)}</span>
+                <span className="grow mono small strong">{l.data.minutes} MIN</span>
+                {l.data.intensity && <span className={`chip sm${l.data.intensity === 'intense' ? ' warn' : ''}`}>{l.data.intensity}</span>}
+                {l.data.rest_s != null && <span className="mono small muted">{l.data.rest_s}S REST</span>}
+              </div>
+            ))}
+          </div>
+        )}
+        <button className="btn btn-outline btn-caps" onClick={() => openSheet('swim')}>Log swim</button>
+      </div>
+      <div className="grid2">
         <Tile icon="run" label="Run" sub={s.run} done={!!s.run} onClick={() => openSheet('run')} />
         <Tile icon="squash" label="Squash" sub={s.squash} done={!!s.squash} onClick={() => openSheet('squash')} />
-        <Tile icon="stretch" label="Stretch" sub={s.stretch} done={!!s.stretch} onClick={() => openSheet('stretch')} />
-        <Tile icon="back" label="Back tight" sub={s.back} done={!!s.back} onClick={flagBack} />
-        <Tile icon="protein" label="Protein" sub={s.protein} done={!!s.protein} onClick={logProtein} />
       </div>
     </section>
   )
@@ -193,7 +233,8 @@ function Targets() {
             const d = dw !== 0 ? dw : dr
             arrow = d > 0 ? 'up' : d < 0 ? 'down' : null
           }
-          const val = e.kind === 'weighted' ? `${fmtW(t.weight_kg)} × ${t.reps}` : e.kind === 'timed' ? `${t.reps} S` : `${t.reps} REPS`
+          const unit = isSecs(e) ? ' S' : e.kind === 'weighted' ? '' : ' REPS'
+          const val = e.kind === 'weighted' ? `${fmtW(t.weight_kg)} × ${t.reps}${unit}` : `${t.reps}${unit}`
           return (
             <div key={e.key} className="stack" style={{ gap: 0 }}>
               <button className="li" style={{ width: '100%', textAlign: 'left' }} onClick={() => setOpen(open === e.key ? null : e.key)}>
@@ -208,8 +249,8 @@ function Targets() {
                   {e.kind === 'weighted' && (
                     <Stepper value={fmtW(t.weight_kg, false)} sub={`weight · step ${e.step}`} onMinus={() => adjustTarget(e.key, -e.step, 0)} onPlus={() => adjustTarget(e.key, e.step, 0)} />
                   )}
-                  <Stepper value={t.reps} sub={e.kind === 'timed' ? 'seconds' : 'reps'}
-                    onMinus={() => adjustTarget(e.key, 0, -(e.kind === 'timed' ? e.step : 1))} onPlus={() => adjustTarget(e.key, 0, e.kind === 'timed' ? e.step : 1)} />
+                  <Stepper value={t.reps} sub={isSecs(e) ? 'seconds' : 'reps'}
+                    onMinus={() => adjustTarget(e.key, 0, -repStep(e))} onPlus={() => adjustTarget(e.key, 0, repStep(e))} />
                 </div>
               )}
             </div>

@@ -2,12 +2,14 @@ import { useMemo } from 'react'
 import { useStore } from '../lib/store'
 import { weekStats, reminders } from '../lib/stats'
 import { fmtDay, fmtDur, fmtStopwatch, hhmm, localDate, localMinutes, minutesBetween, weekStart } from '../lib/time'
-import { deleteEntry, focusBreak, focusResume, focusStop, goingToBed, startSession, wokeUp } from '../lib/actions'
+import { deleteEntry, deleteSleep, focusBreak, focusResume, focusStop, goToSleep, setWakeReason, startSession, wokeUp } from '../lib/actions'
 import { describeLog } from '../lib/describe'
 import { DAYS, EX, GOALS } from '../data/program'
 import { Bar, DeleteX, Label, Ring, useNow } from '../components/ui'
 import { Icon } from '../components/Icon'
-import { QuickGrid } from '../components/QuickLog'
+import { openSheet } from '../components/QuickLog'
+import { groupNights, isNap, isNightWake, segMinutes, WAKE_LABEL, WAKE_REASONS } from '../lib/sleep'
+import { todayPlan, trainingPlan } from '../lib/plan'
 import { InstallHint } from '../components/InstallHint'
 
 export function Home() {
@@ -35,14 +37,11 @@ export function Home() {
         <div className="col">
           <WeekPanel />
           <FocusBanner />
-          <SleepButtons />
+          <SleepCard />
         </div>
         <div className="col">
           <NextSession />
-          <section className="stack">
-            <Label>Quick log</Label>
-            <QuickGrid />
-          </section>
+          <TodayPlan />
         </div>
         <div className="col">
           <Reminders />
@@ -108,52 +107,115 @@ export function FocusBanner() {
   )
 }
 
-function SleepButtons() {
+function SleepCard() {
   const pendingBed = useStore((s) => s.appState?.pending_bed_at)
-  const sleep = useStore((s) => s.sleep)
-  const now = useNow(60000)
-  const lastBed = [...sleep].filter((s) => s.bed_at).sort((a, b) => a.wake_date.localeCompare(b.wake_date)).at(-1)?.bed_at
-  const lastSlept = [...sleep].filter((s) => s.minutes != null).sort((a, b) => a.wake_date.localeCompare(b.wake_date)).at(-1)?.minutes
+  const segs = useStore((s) => s.sleep)
+  const now = useNow(30000)
+  const asleep = !!pendingBed && minutesBetween(pendingBed, now) <= 16 * 60
   const m = localMinutes(now)
-  const bedPending = !!pendingBed && minutesBetween(pendingBed, now) <= 16 * 60
-  const wakeActive = bedPending || (m >= 4 * 60 && m < 12 * 60)
-  const bedActive = !wakeActive && m >= 19 * 60
+  const night = m >= 19 * 60 || m < 6 * 60
+  const nights = useMemo(() => groupNights(segs), [segs])
+  const today = localDate(now)
+  const last = nights.filter((n) => n.date <= today && n.asleep > 0).at(-1)
+  const napsToday = nights.find((n) => n.date === today)?.naps ?? []
+  // Reason chips for a night wake-up that just happened.
+  const latest = [...segs].sort((a, b) => a.end_at.localeCompare(b.end_at)).at(-1)
+  const askReason = !!latest && !latest.wake_reason && !isNap(latest) && isNightWake(latest.end_at) && now - new Date(latest.end_at).getTime() < 30 * 60000
+  const sleepHot = !asleep && night
+
   return (
-    <section className="grid2">
-      <button className={`btn btn-big${bedActive ? ' btn-filled' : ''}`} style={{ flexDirection: 'column', gap: 6, minHeight: 84 }} onClick={goingToBed}>
-        <span className="row" style={{ gap: 8 }}><Icon name="bed" size={20} /> Going to bed</span>
-        <span className="label" style={{ color: bedActive ? '#000' : undefined }}>
-          {bedPending ? `IN BED ${hhmm(pendingBed!)}` : lastBed ? `LAST ${hhmm(lastBed)}` : 'NO DATA'}
-        </span>
-      </button>
-      <button className={`btn btn-big${wakeActive ? ' btn-filled' : ''}`} style={{ flexDirection: 'column', gap: 6, minHeight: 84 }} onClick={wokeUp}>
-        <span className="row" style={{ gap: 8 }}><Icon name="wake" size={20} /> Woke up</span>
-        <span className="label" style={{ color: wakeActive ? '#000' : undefined }}>
-          {lastSlept != null ? `SLEPT ${fmtDur(lastSlept)}` : 'NO DATA'}
-        </span>
-      </button>
+    <section className="panel stack" style={{ gap: 12 }}>
+      <div className="row between">
+        <Label>Sleep</Label>
+        {asleep && <span className="chip on sm">asleep {fmtDur(minutesBetween(pendingBed!, now))}</span>}
+      </div>
+      <div className="grid2">
+        <button className={`btn btn-big${sleepHot ? ' btn-filled' : ''}`} style={{ flexDirection: 'column', gap: 6, minHeight: 76 }} onClick={goToSleep}>
+          <span className="row" style={{ gap: 8 }}><Icon name="bed" size={20} glow={!sleepHot} /> Sleep</span>
+          <span className="label" style={{ color: sleepHot ? '#000' : undefined }}>{asleep ? `SINCE ${hhmm(pendingBed!)}` : 'NAP OR NIGHT'}</span>
+        </button>
+        <button className={`btn btn-big${asleep ? ' btn-filled' : ''}`} style={{ flexDirection: 'column', gap: 6, minHeight: 76 }} onClick={wokeUp}>
+          <span className="row" style={{ gap: 8 }}><Icon name="wake" size={20} glow={!asleep} /> Woke up</span>
+          <span className="label" style={{ color: asleep ? '#000' : undefined }}>{asleep ? 'TAP WHEN AWAKE' : 'ANY TIME'}</span>
+        </button>
+      </div>
+      {askReason && (
+        <div className="stack" style={{ gap: 8 }}>
+          <Label>Why did you wake up?</Label>
+          <div className="row wrap" style={{ gap: 8 }}>
+            {WAKE_REASONS.map(([k, l]) => <button key={k} className="chip" onClick={() => setWakeReason(latest!, k)}>{l}</button>)}
+          </div>
+        </div>
+      )}
+      {last && (
+        <div className="mono small muted" style={{ lineHeight: 1.6 }}>
+          LAST NIGHT · <span className="strong">{fmtDur(last.asleep)}</span>
+          {last.bed && last.wake ? ` · ${hhmm(last.bed)} → ${hhmm(last.wake)}` : ''}
+          {` · WOKE ${last.wakings}×`}
+          {last.reasons.length ? ` (${last.reasons.map((r) => WAKE_LABEL[r] ?? r).join(', ').toUpperCase()})` : ''}
+          {napsToday.length ? ` · NAPS TODAY ${napsToday.length} (${fmtDur(napsToday.reduce((a, n) => a + (segMinutes(n) ?? 0), 0))})` : ''}
+        </div>
+      )}
     </section>
   )
 }
 
 function NextSession() {
-  const day = useStore((s) => s.appState?.rotation_next ?? 'A')
-  const d = DAYS[day]
+  const data = useStore()
+  const plan = useMemo(() => trainingPlan(data), [data])
+  const d = DAYS[plan.day]
   const first = EX[d.keys[0]]
+  const label = plan.state === 'done' ? 'Trained today' : plan.state === 'rest' ? 'Recovery day suggested' : 'Train today'
+  const sub = plan.state === 'done' ? `Next time: Day ${plan.day} · ${d.name}`
+    : plan.state === 'rest' ? `You trained 2 days in a row. Do the core routine and swim; Day ${plan.day} tomorrow.`
+    : d.sub
   return (
     <section className="panel deep stack" style={{ gap: 14 }}>
       <div className="row between">
-        <Label>Next session</Label>
-        <span className="pill">DAY {day}</span>
+        <Label>{label}</Label>
+        <span className="pill">DAY {plan.day}</span>
       </div>
       <div className="row" style={{ gap: 14 }}>
-        <Icon name={first.icon} size={40} strokeWidth={1.3} />
+        <Icon name={plan.state === 'done' ? 'check' : first.icon} size={40} strokeWidth={1.3} />
         <div className="stack grow" style={{ gap: 4 }}>
-          <div className="title" style={{ fontSize: 18 }}>{d.name}</div>
-          <div className="muted small">{d.sub}</div>
+          <div className="title" style={{ fontSize: 18 }}>{plan.state === 'done' ? `Day ${plan.doneDay} done` : d.name}</div>
+          <div className="muted small">{sub}</div>
         </div>
       </div>
-      <button className="btn btn-outline btn-big btn-caps pulse" onClick={() => startSession(day)}>Start</button>
+      {plan.state !== 'done' && (
+        <button className={`btn btn-big btn-caps${plan.state === 'go' ? ' btn-outline pulse' : ''}`} onClick={() => startSession(plan.day)}>
+          {plan.state === 'rest' ? 'Train anyway' : 'Start'}
+        </button>
+      )}
+    </section>
+  )
+}
+
+function TodayPlan() {
+  const data = useStore()
+  const items = useMemo(() => todayPlan(data), [data])
+  const done = items.filter((i) => i.done).length
+  const sorted = [...items].sort((a, b) => Number(a.done) - Number(b.done))
+  const run = (a: (typeof items)[number]['action']) => {
+    if (a?.kind === 'sheet') openSheet(a.sheet)
+    else if (a?.kind === 'session') startSession(a.day)
+  }
+  return (
+    <section className="panel">
+      <div className="panel-head"><Label>Today's plan</Label><span className="label">{done}/{items.length} done</span></div>
+      <div className="list">
+        {sorted.map((it) => (
+          <button key={it.key} className="li" style={{ width: '100%', textAlign: 'left', opacity: it.done ? 0.55 : 1 }}
+            disabled={!it.action} onClick={() => run(it.action)}>
+            <Icon name={it.icon} size={22} glow={!it.done} />
+            <span className="stack grow" style={{ gap: 3 }}>
+              <span className={it.done ? '' : 'strong'}>{it.title}</span>
+              <span className="mono muted" style={{ fontSize: 10, letterSpacing: '.06em' }}>{it.sub}</span>
+            </span>
+            {it.done ? <span className="chip on sm">✓</span> : <Icon name="chevron" size={16} glow={false} />}
+          </button>
+        ))}
+      </div>
     </section>
   )
 }
@@ -171,7 +233,7 @@ function Reminders() {
 
 function TodayList() {
   const logs = useStore((s) => s.logs)
-  const sleep = useStore((s) => s.sleep)
+  const segs = useStore((s) => s.sleep)
   const workouts = useStore((s) => s.workouts)
   const focus = useStore((s) => s.focus)
   const today = localDate()
@@ -181,8 +243,10 @@ function TodayList() {
     const d = describeLog(l)
     items.push({ id: l.id, at: l.logged_at, ...d, del: () => deleteEntry('logs', l.id) })
   }
-  for (const s of sleep) if (s.wake_date === today && s.wake_at) {
-    items.push({ id: s.id, at: s.wake_at, icon: 'wake', text: s.minutes != null ? `Woke up · slept ${fmtDur(s.minutes)}` : 'Woke up', del: () => deleteEntry('sleep', s.id) })
+  for (const s of segs) if (localDate(s.end_at) === today) {
+    const mins = segMinutes(s)
+    const why = s.wake_reason ? ` (${(WAKE_LABEL[s.wake_reason] ?? s.wake_reason).toLowerCase()})` : ''
+    items.push({ id: s.id, at: s.end_at, icon: 'wake', text: `${isNap(s) ? 'Nap' : 'Woke up'}${mins != null ? ` · slept ${fmtDur(mins)}` : ''}${why}`, del: () => deleteSleep(s) })
   }
   for (const w of workouts) if (w.local_date === today) {
     items.push({ id: w.id, at: w.started_at, icon: 'dumbbell', text: `Day ${w.day_code} · ${DAYS[w.day_code].name}${w.ended_early ? ' (ended early)' : ''}`, del: () => deleteEntry('workouts', w.id) })
@@ -193,7 +257,7 @@ function TodayList() {
   items.sort((a, b) => b.at.localeCompare(a.at))
   return (
     <section className="panel">
-      <div className="panel-head"><Label>Today</Label><span className="label">{items.length}</span></div>
+      <div className="panel-head"><Label>Logged today</Label><span className="label">{items.length}</span></div>
       {items.length === 0 ? <div className="empty">Nothing logged yet today.</div> : (
         <div className="list">
           {items.map((it) => (

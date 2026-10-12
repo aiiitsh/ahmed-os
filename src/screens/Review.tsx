@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore, putRows, uid } from '../lib/store'
 import { addDays, dowShort, fmtClock, fmtDay, fmtDur, hhmm, localMinutes, weekDays, weekStart } from '../lib/time'
-import { bedMinutes, fmt1 } from '../lib/stats'
+import { bedMinutes, fmt1, type WeekStats } from '../lib/stats'
 import { buildJson, buildText, buildWeek } from '../lib/export'
-import { shiftSleep } from '../lib/actions'
+import { deleteSleep, shiftSleep } from '../lib/actions'
 import { toast } from '../lib/toast'
 import { GROUPS, GOALS } from '../data/program'
-import type { SleepRow, WeeklyReview } from '../lib/types'
+import type { WeeklyReview } from '../lib/types'
+import { isNap, WAKE_LABEL, type Night } from '../lib/sleep'
 import { Bar, Label, Stepper, useLongPress } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { WeekChart } from './Work'
@@ -93,8 +94,8 @@ export function Review() {
           <div className="grid3">
             <Stat v={w.workouts.length} k={`Sessions · A${w.byDayCode.A} B${w.byDayCode.B} C${w.byDayCode.C}`} />
             <Stat v={w.cardio.length} k="Cardio" />
-            <Stat v={`${w.proteinDays}/7`} k="Protein days" />
-            <Stat v={w.flags.length} k="Back flags" />
+            <Stat v={`${w.routineDays}/7`} k="Core routine" />
+            <Stat v={w.swims.length} k="Swims" />
             <Stat v={w.hipFlexor} k="Hip flexor" />
             <Stat v={w.bodyweight.last != null ? `${w.bodyweight.last}` : '—'} k={w.bodyweight.last != null && w.bodyweight.before != null ? `KG · ${w.bodyweight.last - w.bodyweight.before >= 0 ? '+' : ''}${(w.bodyweight.last - w.bodyweight.before).toFixed(1)}` : 'Bodyweight'} />
           </div>
@@ -156,7 +157,7 @@ function Notes({ initial, onSave }: { initial: string; onSave: (n: string) => vo
 const WIN_START = 21 * 60 // 21:00
 const WIN_LEN = 14 * 60 // → 11:00
 
-function SleepSection({ rows, start, avg }: { rows: SleepRow[]; start: string; avg: { avgMinutes: number | null; avgBed: number | null; avgWake: number | null; bedSpread: number | null } }) {
+function SleepSection({ rows, start, avg }: { rows: Night[]; start: string; avg: WeekStats['sl'] }) {
   const days = weekDays(start)
   const [edit, setEdit] = useState<string | null>(null)
   const H = 140, W = 280
@@ -171,6 +172,10 @@ function SleepSection({ rows, start, avg }: { rows: SleepRow[]; start: string; a
         <Stat v={avg.avgWake != null ? fmtClock(avg.avgWake) : '—'} k="Wake" />
         <Stat v={avg.bedSpread != null ? `${Math.round(avg.bedSpread)}M` : '—'} k="Spread" />
       </div>
+      <div className="grid2">
+        <Stat v={avg.avgWakings != null ? avg.avgWakings.toFixed(1) : '—'} k="Wake-ups / night" />
+        <Stat v={avg.naps ? `${avg.naps} · ${fmtDur(avg.napMinutes)}` : '0'} k="Naps" />
+      </div>
       <svg viewBox={`0 0 ${W} ${H + 18}`} width="100%" role="img" aria-label="Sleep window 21:00 to 11:00">
         {[21, 0, 3, 6, 9].map((hh) => {
           const m = hh < 12 ? hh * 60 + 1440 : hh * 60
@@ -178,16 +183,17 @@ function SleepSection({ rows, start, avg }: { rows: SleepRow[]; start: string; a
         })}
         {days.map((d, i) => {
           const cx = 46 + i * ((W - 60) / 6)
-          const r = rows.find((x) => x.wake_date === d)
-          const top = r?.bed_at ? y(bedMinutes(r.bed_at)) : null
-          const bot = r?.wake_at ? wakeY(r.wake_at) : null
-          const good = r?.minutes != null && r.minutes >= 7.5 * 60
+          const n = rows.find((x) => x.date === d)
+          const good = !!n && n.asleep >= 7.5 * 60
           return (
             <g key={d}>
-              {top != null && bot != null && bot > top && (
-                <rect x={cx - 9} y={top} width={18} height={bot - top} rx={3} fill={good ? '#fff' : '#9c9ca2'} filter={good ? 'url(#gs)' : undefined} />
-              )}
-              {top == null && bot != null && <circle cx={cx} cy={bot} r={3} fill="#fff" />}
+              {n?.segments.map((g) => {
+                const top = g.start_at ? y(bedMinutes(g.start_at)) : null
+                const bot = wakeY(g.end_at)
+                return top != null && bot > top
+                  ? <rect key={g.id} x={cx - 9} y={top} width={18} height={Math.max(2, bot - top)} rx={3} fill={good ? '#fff' : '#9c9ca2'} filter={good ? 'url(#gs)' : undefined} />
+                  : <circle key={g.id} cx={cx} cy={bot} r={3} fill="#fff" />
+              })}
               <text x={cx} y={H + 13} textAnchor="middle" fill="#8c8c8c" style={{ font: '500 8px var(--f-mono)' }}>{dowShort(d)}</text>
             </g>
           )
@@ -195,27 +201,37 @@ function SleepSection({ rows, start, avg }: { rows: SleepRow[]; start: string; a
       </svg>
       <div className="list">
         {rows.length === 0 && <div className="empty">No sleep logged this week.</div>}
-        {rows.map((r) => <SleepRowItem key={r.id} r={r} open={edit === r.id} onOpen={() => setEdit(edit === r.id ? null : r.id)} />)}
+        {rows.map((n) => <NightItem key={n.date} n={n} open={edit === n.date} onOpen={() => setEdit(edit === n.date ? null : n.date)} />)}
       </div>
     </section>
   )
 }
 
-function SleepRowItem({ r, open, onOpen }: { r: SleepRow; open: boolean; onOpen: () => void }) {
+function NightItem({ n, open, onOpen }: { n: Night; open: boolean; onOpen: () => void }) {
   const lp = useLongPress(onOpen)
+  const all = [...n.segments, ...n.naps].sort((a, b) => (a.start_at ?? a.end_at).localeCompare(b.start_at ?? b.end_at))
   return (
     <div className="stack" style={{ gap: 0 }}>
-      <div className="li" {...lp} style={{ userSelect: 'none', WebkitUserSelect: 'none', cursor: 'pointer' }}>
-        <span className="mono small" style={{ width: 92 }}>{fmtDay(r.wake_date)}</span>
-        <span className="grow mono small muted">{r.bed_at ? hhmm(r.bed_at) : '--:--'} → {r.wake_at ? hhmm(r.wake_at) : '--:--'}</span>
-        <span className="mono small strong">{r.minutes != null ? fmtDur(r.minutes) : '—'}</span>
+      <div className="li" {...lp} style={{ cursor: 'pointer' }}>
+        <span className="mono small" style={{ width: 92 }}>{fmtDay(n.date)}</span>
+        <span className="grow mono small muted">
+          {n.bed ? hhmm(n.bed) : '--:--'} → {n.wake ? hhmm(n.wake) : '--:--'}
+          {n.wakings ? ` · WOKE ${n.wakings}×` : ''}{n.naps.length ? ` · ${n.naps.length} NAP` : ''}
+        </span>
+        <span className="mono small strong">{n.asleep ? fmtDur(n.asleep) : '—'}</span>
       </div>
-      {open && (
-        <div className="row wrap" style={{ gap: 14, justifyContent: 'center', padding: '8px 0 14px' }}>
-          <Stepper value={r.bed_at ? hhmm(r.bed_at) : '--:--'} sub="bed ±15" onMinus={() => shiftSleep(r, 'bed_at', -15)} onPlus={() => shiftSleep(r, 'bed_at', 15)} />
-          <Stepper value={r.wake_at ? hhmm(r.wake_at) : '--:--'} sub="wake ±15" onMinus={() => shiftSleep(r, 'wake_at', -15)} onPlus={() => shiftSleep(r, 'wake_at', 15)} />
+      {open && all.map((g) => (
+        <div key={g.id} className="stack" style={{ gap: 6, padding: '8px 0 12px', borderBottom: '1px solid var(--divider)' }}>
+          <div className="row between">
+            <span className="label">{isNap(g) ? 'Nap' : 'Sleep'}{g.wake_reason ? ` · woke: ${WAKE_LABEL[g.wake_reason] ?? g.wake_reason}` : ''}</span>
+            <button className="chip sm" onClick={() => deleteSleep(g)}>Delete</button>
+          </div>
+          <div className="row wrap" style={{ gap: 14, justifyContent: 'center' }}>
+            <Stepper value={g.start_at ? hhmm(g.start_at) : '--:--'} sub="slept ±15" onMinus={() => shiftSleep(g, 'start_at', -15)} onPlus={() => shiftSleep(g, 'start_at', 15)} />
+            <Stepper value={hhmm(g.end_at)} sub="woke ±15" onMinus={() => shiftSleep(g, 'end_at', -15)} onPlus={() => shiftSleep(g, 'end_at', 15)} />
+          </div>
         </div>
-      )}
+      ))}
     </div>
   )
 }

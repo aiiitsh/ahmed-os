@@ -155,3 +155,6 @@ alter publication supabase_realtime add table
   public.app_state, public.exercise_targets, public.workouts, public.workout_sets,
   public.sleep, public.focus_blocks, public.quran_juz, public.logs,
   public.habit_entries, public.weekly_reviews;
+
+-- ===== Later migrations (also in supabase/migrations/) =====
+-- 002: see supabase/migrations/002_sleep_segments_and_porn_flag.sql (run it after this file on a fresh project).

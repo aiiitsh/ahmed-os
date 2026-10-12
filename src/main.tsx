@@ -12,6 +12,17 @@ createRoot(document.getElementById('root')!).render(
 
 // Ask the browser to keep this site's storage (the saved login lives there) instead of evicting it.
 void navigator.storage?.persist?.().catch(() => {})
+// Installed iOS app: if the reported viewport is shorter than the screen, pull the tab bar down to the edge.
+function fitViewport() {
+  const standalone = (navigator as any).standalone === true || matchMedia('(display-mode: standalone)').matches
+  const portrait = matchMedia('(orientation: portrait)').matches
+  const gap = standalone && portrait ? screen.height - window.innerHeight : 0
+  document.documentElement.style.setProperty('--vp-gap', `${gap > 0 && gap <= 100 ? gap : 0}px`)
+}
+fitViewport()
+window.addEventListener('resize', fitViewport)
+window.addEventListener('orientationchange', () => setTimeout(fitViewport, 300))
+
 // Safari pinch-zoom: block it so the app doesn't drift or scale like a web page.
 document.addEventListener('gesturestart', (e) => e.preventDefault())
 

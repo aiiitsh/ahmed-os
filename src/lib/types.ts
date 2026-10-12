@@ -36,10 +36,20 @@ export interface ActiveSession {
   finished?: boolean
 }
 
+export interface SwimPlan {
+  /** rest between 25 m sprints */
+  rest_s: number
+  /** how long to keep going */
+  target_min: number
+}
+
 export interface Settings {
   show_streak_in_review?: boolean
   french_level?: string
   units?: 'kg' | 'lb'
+  swim?: SwimPlan
+  /** Streak counts clean days from here when there are no earlier entries. */
+  streak_start?: string
 }
 
 export interface AppState {
@@ -95,13 +105,14 @@ export interface WorkoutSet {
   next_reps: number | null
 }
 
-export interface SleepRow {
+/** One stretch of sleep: Sleep → Woke up. Naps and night wake-ups are just more segments. */
+export interface SleepSeg {
   id: string
   user_id: string
-  wake_date: string
-  bed_at: string | null
-  wake_at: string | null
-  minutes: number | null
+  start_at: string | null
+  end_at: string
+  wake_reason: string | null
+  created_at?: string
 }
 
 export interface FocusBlock {
@@ -139,6 +150,7 @@ export interface HabitEntry {
   user_id: string
   entry_date: string
   count: number
+  porn?: boolean
   reason: string | null
   created_at?: string
   updated_at?: string

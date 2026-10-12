@@ -1,5 +1,5 @@
 // Section 7.5: the app decides the next target from what was done and how it felt.
-import type { Exercise } from '../data/program'
+import { repStep, type Exercise } from '../data/program'
 import type { Feel } from './types'
 
 export interface ProgressInput {
@@ -37,7 +37,7 @@ export function progress(ex: Exercise, inp: ProgressInput): ProgressResult {
     return { weight: w, reps: hi, feel }
   }
 
-  const inc = ex.kind === 'timed' ? step : 1
+  const inc = repStep(ex)
   const wStep = ex.kind === 'weighted' ? step : 0
 
   if (feel === 'easy') {
@@ -53,4 +53,27 @@ export function progress(ex: Exercise, inp: ProgressInput): ProgressResult {
     else r = Math.max(r, inp.targetReps) // keep: repeat the target
   }
   return { weight: w, reps: r, feel }
+}
+
+// ---------- swim: 25 m sprint front, rest, 25 m sprint back, rest ----------
+
+export interface SwimDone {
+  minutes: number
+  rest_s: number
+  intensity: 'easy' | 'moderate' | 'intense'
+}
+
+/**
+ * Next session's rest between 25 m sprints and how long to aim to last.
+ * The goal is lasting longer: hit the target → aim 2 min longer; felt easy → rest less.
+ */
+export function nextSwim(cur: { rest_s: number; target_min: number }, done: SwimDone) {
+  const hit = done.minutes >= cur.target_min
+  let rest = done.rest_s
+  if (done.intensity === 'easy') rest -= 10
+  else if (done.intensity === 'moderate' && hit) rest -= 5
+  else if (done.intensity === 'intense' && !hit) rest += 5
+  rest = Math.max(15, Math.min(90, rest))
+  const target_min = hit ? done.minutes + 2 : Math.max(cur.target_min, done.minutes + 1)
+  return { rest_s: rest, target_min }
 }

@@ -71,7 +71,7 @@ p { margin: 0; }
 .col { display: flex; flex-direction: column; gap: var(--gap); min-width: 0; }
 
 /* tab bar (phone) */
-.tabbar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; height: calc(var(--tabbar-h) + var(--tabbar-pad));
+.tabbar { position: fixed; left: 0; right: 0; bottom: calc(-1 * var(--vp-gap)); z-index: 30; height: calc(var(--tabbar-h) + var(--tabbar-pad));
   padding: 0 4px var(--tabbar-pad); display: grid; grid-template-columns: repeat(6, 1fr);
   background: rgba(0,0,0,.92); border-top: 1px solid rgba(255,255,255,.08); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
 .tab { display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; padding-top: 6px; color: var(--dim); height: var(--tabbar-h); }
@@ -251,3 +251,17 @@ input[type=date].field { color-scheme: dark; }
   .cols.c2 { --n: 2; }
   .narrow { max-width: 760px; }
 }
+
+/* segmented picker */
+.seg { display: grid; grid-auto-flow: column; grid-auto-columns: 1fr; gap: 4px; padding: 4px; border-radius: 14px; background: var(--panel); border: 1px solid var(--line); }
+.seg-btn { min-height: 40px; border-radius: 10px; font: 500 13px/1 var(--f-body); color: var(--muted); }
+.seg-btn.on { background: #fff; color: #000; box-shadow: 0 0 14px rgba(255,255,255,.35); }
+.seg-btn.on.red { background: var(--red); color: #fff; box-shadow: 0 0 14px var(--red-glow); }
+
+/* red = porn (the one non-monochrome signal, asked for explicitly) */
+.red-text { color: var(--red) !important; text-shadow: 0 0 10px var(--red-glow) !important; }
+.chip.red { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 0 12px var(--red-glow); }
+.heat .c.p { background: #5a1414; border-color: #7a1c1c; }
+.heat .c.p.h2 { background: #b3261e; border-color: #b3261e; box-shadow: 0 0 5px var(--red-glow); }
+.heat .c.p.h3 { background: #e5352b; border-color: #e5352b; box-shadow: 0 0 8px var(--red-glow); }
+.heat .c.p.h4 { background: #ff453a; border-color: #ff453a; box-shadow: 0 0 11px var(--red-glow); }

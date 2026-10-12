@@ -7,12 +7,15 @@ export function describeLog(l: Log): { icon: string; text: string } {
   const d = l.data
   switch (l.type) {
     case 'cardio': {
+      if (d.sport === 'swim' && d.intensity) {
+        return { icon: 'swim', text: `Swim · ${d.minutes} min · ${d.intensity}${d.rest_s != null ? ` · rest ${d.rest_s} s` : ''}` }
+      }
       const c = CARDIO[d.sport as Sport]
       const v = c?.variants.find((x) => x[0] === d.variant)?.[1] ?? cap(d.variant)
       return { icon: c?.icon ?? 'run', text: `${c?.label ?? cap(d.sport)} · ${v} · ${d.minutes} min` }
     }
     case 'stretch':
-      return { icon: d.which === 'hip_flexors' ? 'hipflexor' : d.which === 'chest' ? 'cheststretch' : 'stretch', text: `Stretch · ${STRETCH_LABEL[d.which] ?? cap(d.which)}${d.in_session ? ' (session)' : ''}` }
+      return { icon: d.which === 'daily_routine' ? 'hollow' : d.which === 'hip_flexors' ? 'hipflexor' : d.which === 'chest' ? 'cheststretch' : 'stretch', text: `Stretch · ${STRETCH_LABEL[d.which] ?? cap(d.which)}${d.in_session ? ' (session)' : ''}` }
     case 'flag':
       return { icon: 'back', text: 'Lower back felt tight' }
     case 'protein':

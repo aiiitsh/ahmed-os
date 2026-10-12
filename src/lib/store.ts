@@ -5,7 +5,7 @@ import { pendingCount, write, onPending, type Op } from './queue'
 import { addDays, localDate } from './time'
 import { EXERCISES, SKILLS_SEED, seedTarget } from '../data/program'
 import type {
-  AppState, FocusBlock, HabitEntry, Juz, Log, SleepRow, Target, WeeklyReview, Workout, WorkoutSet,
+  AppState, FocusBlock, HabitEntry, Juz, Log, SleepSeg, Target, WeeklyReview, Workout, WorkoutSet,
 } from './types'
 
 export interface Data {
@@ -13,7 +13,7 @@ export interface Data {
   targets: Record<string, Target>
   juz: Record<number, Juz>
   logs: Log[]
-  sleep: SleepRow[]
+  sleep: SleepSeg[]
   focus: FocusBlock[]
   workouts: Workout[]
   sets: WorkoutSet[]
@@ -90,7 +90,9 @@ export async function load(force = false) {
       q<Target[]>(supabase.from('exercise_targets').select('*')),
       q<Juz[]>(supabase.from('quran_juz').select('*').order('juz')),
       q<Log[]>(supabase.from('logs').select('*').gte('local_date', since).order('logged_at').range(0, 9999)),
-      q<SleepRow[]>(supabase.from('sleep').select('*').gte('wake_date', since).order('wake_date').range(0, 9999)),
+      // Tolerate a missing table until migration 002 has been run.
+      q<SleepSeg[]>(supabase.from('sleep_segments').select('*').gte('end_at', `${since}T00:00:00Z`).order('end_at').range(0, 9999))
+        .catch((e) => { console.warn('sleep_segments unavailable (run migration 002):', e?.message); return [] as SleepSeg[] }),
       q<FocusBlock[]>(supabase.from('focus_blocks').select('*').gte('local_date', since).order('started_at').range(0, 9999)),
       q<Workout[]>(supabase.from('workouts').select('*').gte('local_date', since).order('started_at').range(0, 9999)),
       q<WorkoutSet[]>(supabase.from('workout_sets').select('*').range(0, 19999)),
@@ -120,7 +122,7 @@ export async function load(force = false) {
 
 type ListKey = 'logs' | 'sleep' | 'focus' | 'workouts' | 'sets' | 'habits' | 'reviews'
 const TABLE: Record<ListKey, string> = {
-  logs: 'logs', sleep: 'sleep', focus: 'focus_blocks', workouts: 'workouts', sets: 'workout_sets', habits: 'habit_entries', reviews: 'weekly_reviews',
+  logs: 'logs', sleep: 'sleep_segments', focus: 'focus_blocks', workouts: 'workouts', sets: 'workout_sets', habits: 'habit_entries', reviews: 'weekly_reviews',
 }
 
 /** Insert or replace rows in a local list (matched by id), then upsert remotely. */

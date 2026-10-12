@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useStore, set } from '../lib/store'
 import { habitStats } from '../lib/stats'
 import { addDays, fmtDay, localDate, monShort, weekStart } from '../lib/time'
-import { deleteHabit, hashPin, saveHabit } from '../lib/actions'
+import { deleteHabit, hashPin, saveHabit, setStreakStart } from '../lib/actions'
+import { Segmented } from '../components/QuickLog'
 import { Label, Stepper } from '../components/ui'
 import { Icon } from '../components/Icon'
 
@@ -48,12 +49,15 @@ function PinLock({ hash }: { hash: string }) {
 
 function StreakBody() {
   const habits = useStore((s) => s.habits)
+  const streakStart = useStore((s) => s.appState?.settings?.streak_start)
   const today = localDate()
-  const st = useMemo(() => habitStats(habits, today), [habits, today])
+  const st = useMemo(() => habitStats(habits, today, streakStart), [habits, today, streakStart])
+  const [editStart, setEditStart] = useState(false)
   const byDate = useMemo(() => Object.fromEntries(habits.map((h) => [h.entry_date, h])), [habits])
 
   const [date, setDate] = useState(today)
   const [count, setCount] = useState(1)
+  const [porn, setPorn] = useState<'no' | 'yes'>('no')
   const [reason, setReason] = useState('')
   const [sel, setSel] = useState<string | null>(null)
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -62,13 +66,15 @@ function StreakBody() {
     setDate(d)
     const e = byDate[d]
     setCount(e ? e.count : 1)
+    setPorn(e?.porn ? 'yes' : 'no')
     setReason(e?.reason ?? '')
   }
 
   const save = () => {
-    saveHabit(date, count, reason)
+    saveHabit(date, count, reason, porn === 'yes')
     setReason('')
     setCount(1)
+    setPorn('no')
     setDate(today)
   }
 
@@ -76,6 +82,7 @@ function StreakBody() {
   const firstCol = addDays(weekStart(today), -7 * 25)
   const cols = Array.from({ length: 26 }, (_, c) => addDays(firstCol, c * 7))
   const lvl = (n: number) => (n <= 0 ? '' : n >= 4 ? 'h4' : `h${n}`)
+  const cellCls = (e?: { count: number; porn?: boolean }) => (e ? `${lvl(e.count)}${e.porn && e.count > 0 ? ' p' : ''}` : '')
   const selEntry = sel ? byDate[sel] : null
   const recent = [...habits].sort((a, b) => b.entry_date.localeCompare(a.entry_date)).slice(0, 30)
 
@@ -92,7 +99,7 @@ function StreakBody() {
             {!st.hasAny ? (
               <>
                 <div className="hero-word" style={{ fontSize: 64 }}>0</div>
-                <p className="muted">Your streak starts today.</p>
+                <p className="muted">Your streak starts today. Already clean for a while? Set the first clean day below.</p>
               </>
             ) : (
               <>
@@ -101,8 +108,22 @@ function StreakBody() {
                 <div className="row" style={{ gap: 26, marginTop: 8 }}>
                   <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{st.best}</span><Label>Best streak</Label></div>
                   <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{st.monthTimes} / {st.monthDays}</span><Label>Month · times / days</Label></div>
+                  {st.pornDaysMonth > 0 && (
+                    <div className="stack" style={{ gap: 3 }}><span className="big-num red-text" style={{ fontSize: 20 }}>{st.pornDaysMonth}</span><Label>Porn days</Label></div>
+                  )}
                 </div>
               </>
+            )}
+            {editStart ? (
+              <div className="row" style={{ gap: 8, width: '100%', marginTop: 6 }}>
+                <input className="field grow" type="date" max={today} defaultValue={streakStart ?? today}
+                  onChange={(e) => e.target.value && setStreakStart(e.target.value)} />
+                <button className="btn" onClick={() => setEditStart(false)}>Done</button>
+              </div>
+            ) : (
+              <button className="link" onClick={() => setEditStart(true)}>
+                {streakStart ? `Counting from ${fmtDay(streakStart)} · change` : 'Set first clean day'}
+              </button>
             )}
           </section>
 
@@ -112,6 +133,9 @@ function StreakBody() {
             <div className="row" style={{ justifyContent: 'center' }}>
               <Stepper value={count} sub="how many times" onMinus={() => setCount((c) => Math.max(0, c - 1))} onPlus={() => setCount((c) => c + 1)} />
             </div>
+            {count > 0 && (
+              <Segmented value={porn} options={[['no', 'No porn'], ['yes', 'Porn']]} onChange={setPorn} warn="yes" />
+            )}
             <textarea className="field" placeholder="Reason or context (optional)" value={reason} onChange={(e) => setReason(e.target.value)} />
             <button className="btn btn-filled btn-big btn-caps" onClick={save}>{byDate[date] ? 'Update' : 'Save'}</button>
           </section>
@@ -133,7 +157,7 @@ function StreakBody() {
                 const e = byDate[d]
                 const fut = d > today
                 return (
-                  <button key={d} className={`c ${e ? lvl(e.count) : ''}${fut ? ' fut' : ''}${sel === d ? ' sel' : ''}`}
+                  <button key={d} className={`c ${cellCls(e)}${fut ? ' fut' : ''}${sel === d ? ' sel' : ''}`}
                     aria-label={`${d}: ${e?.count ?? 0}`} onClick={() => setSel(sel === d ? null : d)} />
                 )
               }))}
@@ -144,12 +168,17 @@ function StreakBody() {
                 {['', 'h1', 'h2', 'h3', 'h4'].map((h) => <span key={h} className={`c ${h}`} />)}
               </div>
               <span className="label" style={{ fontSize: 8 }}>4+</span>
+              <span className="heat" style={{ gridTemplateRows: '1fr', gridAutoColumns: '10px', marginLeft: 10 }}><span className="c h2 p" /></span>
+              <span className="label" style={{ fontSize: 8 }}>porn</span>
             </div>
             {sel && (
               <div className="panel" style={{ padding: 14 }}>
                 <div className="row between">
                   <span className="strong">{fmtDay(sel)}</span>
-                  <span className="mono strong">{selEntry ? `${selEntry.count}×` : 'no entry'}</span>
+                  <span className="row" style={{ gap: 8 }}>
+                    {selEntry?.porn && selEntry.count > 0 && <span className="chip sm red">porn</span>}
+                    <span className="mono strong">{selEntry ? `${selEntry.count}×` : 'no entry'}</span>
+                  </span>
                 </div>
                 {selEntry?.reason && <p className="muted small" style={{ marginTop: 8, whiteSpace: 'pre-wrap' }}>{selEntry.reason}</p>}
                 <div className="row" style={{ gap: 8, marginTop: 10 }}>
@@ -178,7 +207,7 @@ function StreakBody() {
                     onClick={() => setExpanded(expanded === h.id ? null : h.id)}>
                     <div className="row" style={{ width: '100%' }}>
                       <span className="mono small" style={{ width: 92 }}>{fmtDay(h.entry_date)}</span>
-                      <span className="mono strong" style={{ width: 30 }}>{h.count}×</span>
+                      <span className={`mono strong${h.porn && h.count > 0 ? ' red-text' : ''}`} style={{ width: 30 }}>{h.count}×</span>
                       <span className="grow muted small" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {h.reason?.split('\n')[0] ?? ''}
                       </span>

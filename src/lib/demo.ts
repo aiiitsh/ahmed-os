@@ -2,7 +2,7 @@
 import { EXERCISES, SKILLS_SEED, seedTarget } from '../data/program'
 import type { Data } from './store'
 import { addDays, localDate, weekStart } from './time'
-import type { Log } from './types'
+import type { Log, SleepSeg } from './types'
 
 export const demoMode = import.meta.env.DEV && typeof location !== 'undefined' && new URLSearchParams(location.search).has('demo')
 
@@ -22,17 +22,25 @@ export function demoData(uid: string): Data {
     if (i % 2) logs.push(log(d, 20, 'french', { activity: 'book', minutes: 30, unit: 3 }))
     if (i % 2 === 0) logs.push(log(d, 13, 'protein', { hit: true }))
   }
-  logs.push(log(addDays(today, -2), 18, 'cardio', { sport: 'swim', variant: 'endurance', minutes: 45 }))
+  logs.push(log(addDays(today, -9), 18, 'cardio', { sport: 'swim', variant: 'sprints', minutes: 16, intensity: 'intense', rest_s: 45 }))
+  logs.push(log(addDays(today, -6), 18, 'cardio', { sport: 'swim', variant: 'sprints', minutes: 18, intensity: 'moderate', rest_s: 45 }))
+  logs.push(log(addDays(today, -2), 18, 'cardio', { sport: 'swim', variant: 'sprints', minutes: 21, intensity: 'moderate', rest_s: 40 }))
   logs.push(log(addDays(today, -5), 19, 'stretch', { which: 'hip_flexors' }))
   logs.push(log(today, 7, 'quran', { juz: 2, mode: 'revise' }))
 
-  const sleep = Array.from({ length: 7 }, (_, i) => {
+  // Nights with a pee wake-up most nights, plus a nap two days ago.
+  const sleep: SleepSeg[] = []
+  for (let i = 0; i < 7; i++) {
     const d = addDays(today, -i)
-    const bedH = 23 + (i % 3) * 0.5
-    const bed = new Date(new Date(iso(addDays(d, -1), 23)).getTime() + (bedH - 23) * 3600000).toISOString()
-    const wake = iso(d, 7, 15)
-    return { id: id(), user_id: uid, wake_date: d, bed_at: bed, wake_at: wake, minutes: Math.round((new Date(wake).getTime() - new Date(bed).getTime()) / 60000) }
-  })
+    const bed = new Date(new Date(iso(addDays(d, -1), 23)).getTime() + (i % 3) * 1800000).toISOString()
+    if (i % 3 !== 2) {
+      sleep.push({ id: id(), user_id: uid, start_at: bed, end_at: iso(d, 3, 10), wake_reason: i % 2 ? 'pee' : 'no_reason' })
+      sleep.push({ id: id(), user_id: uid, start_at: iso(d, 3, 25), end_at: iso(d, 7, 15), wake_reason: null })
+    } else {
+      sleep.push({ id: id(), user_id: uid, start_at: bed, end_at: iso(d, 7, 15), wake_reason: null })
+    }
+  }
+  sleep.push({ id: id(), user_id: uid, start_at: iso(addDays(today, -2), 14, 30), end_at: iso(addDays(today, -2), 15, 0), wake_reason: null })
 
   const w1 = { id: id(), user_id: uid, local_date: ws, day_code: 'A' as const, started_at: iso(ws, 17), ended_at: iso(ws, 18), skill_key: 'muscleup', skill_done: true, skill_minutes: 22, ended_early: false }
   const sets = ['db_curl', 'db_oh_triceps', 'db_lateral'].map((k, i) => ({
@@ -49,12 +57,12 @@ export function demoData(uid: string): Data {
     ]
   })
 
-  const habits = [3, 9, 10, 24, 40, 41, 60, 90].map((k, i) => ({ id: id(), user_id: uid, entry_date: addDays(today, -k), count: (i % 4) + 1, reason: i % 2 ? 'Late night, phone in bed.' : null }))
+  const habits = [3, 9, 10, 24, 40, 41, 60, 90].map((k, i) => ({ id: id(), user_id: uid, entry_date: addDays(today, -k), count: (i % 4) + 1, porn: i % 3 === 0, reason: i % 2 ? 'Late night, phone in bed.' : null }))
 
   return {
     appState: {
       user_id: uid, rotation_next: 'B', skills: SKILLS_SEED, french_unit: 3, pending_bed_at: null, focus: null,
-      active_session: null, streak_pin_hash: null, settings: { french_level: 'A1', units: 'kg' },
+      active_session: null, streak_pin_hash: null, settings: { french_level: 'A1', units: 'kg', swim: { rest_s: 35, target_min: 23 }, streak_start: addDays(today, -95) },
     },
     targets: Object.fromEntries(EXERCISES.map((e) => [e.key, { user_id: uid, exercise_key: e.key, ...seedTarget(e), last_feel: null, times_done: 0, calibrated: e.key.startsWith('db_') && e.days.includes('A') }])),
     juz: Object.fromEntries(Array.from({ length: 30 }, (_, i) => {
