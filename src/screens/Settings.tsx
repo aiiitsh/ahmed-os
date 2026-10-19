@@ -6,7 +6,20 @@ import { toast } from '../lib/toast'
 import { Label, Toggle } from '../components/ui'
 import { download } from './Review'
 
-const TABLES = ['app_state', 'exercise_targets', 'workouts', 'workout_sets', 'sleep', 'focus_blocks', 'quran_juz', 'logs', 'habit_entries', 'weekly_reviews']
+const TABLES = ['app_state', 'exercise_targets', 'workouts', 'workout_sets', 'sleep_segments', 'sleep', 'focus_blocks', 'quran_juz', 'logs', 'habit_entries', 'weekly_reviews']
+
+/** Every table, oldest first. A table that errors (e.g. migration not run yet) is noted instead of failing the export. */
+async function collectAll() {
+  const out: Record<string, unknown> = { app: 'Ahmed OS', exported_at: new Date().toISOString(), timezone: 'America/Toronto' }
+  const errors: Record<string, string> = {}
+  for (const t of TABLES) {
+    const { data, error } = await supabase.from(t).select('*').range(0, 49999)
+    if (error) errors[t] = error.message
+    else out[t] = data
+  }
+  if (Object.keys(errors).length) out._errors = errors
+  return out
+}
 
 export function Settings() {
   const app = useStore((s) => s.appState)!
@@ -17,15 +30,20 @@ export function Settings() {
 
   const exportAll = async () => {
     try {
-      const out: Record<string, unknown> = { app: 'Ahmed OS', exported_at: new Date().toISOString() }
-      for (const t of TABLES) {
-        const { data, error } = await supabase.from(t).select('*').range(0, 49999)
-        if (error) throw error
-        out[t] = data
-      }
+      const out = await collectAll()
       download(`ahmed-os-all-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(out, null, 2), 'application/json')
     } catch (e: any) {
       toast(e?.message || 'Export failed', undefined, 'error')
+    }
+  }
+
+  const copyAll = async () => {
+    try {
+      const out = await collectAll()
+      await navigator.clipboard.writeText(JSON.stringify(out))
+      toast('All data copied · paste it to Claude')
+    } catch (e: any) {
+      toast(e?.message || 'Copy failed', undefined, 'error')
     }
   }
 
@@ -94,7 +112,8 @@ export function Settings() {
 
       <section className="panel stack">
         <Label>Data</Label>
-        <button className="btn" onClick={exportAll}>Export all data (JSON)</button>
+        <button className="btn btn-filled" onClick={copyAll}>Copy all data (paste to Claude)</button>
+        <button className="btn" onClick={exportAll}>Download all data (JSON)</button>
       </section>
 
       <section className="panel stack" style={{ gap: 8 }}>
