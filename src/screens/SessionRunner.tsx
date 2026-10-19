@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { create } from 'zustand'
 import { useStore } from '../lib/store'
-import { completeStep, discardSession, finishSession, goToStep, levelUp, updateStep, type FinishSummary } from '../lib/actions'
+import { completeStep, discardSession, finishSession, goToStep, updateStep, type FinishSummary } from '../lib/actions'
 import { fmtStopwatch, minutesBetween } from '../lib/time'
 import { fmtW } from '../lib/format'
 import { DAYS, EX, isSecs, repStep } from '../data/program'
@@ -74,21 +74,21 @@ export function SessionRunner() {
 function Step({ idx, st, stepStartedAt }: { idx: number; st: StepState; stepStartedAt: string }) {
   const e = EX[st.key]
   const target = useStore((s) => s.targets[st.key])
-  const skills = useStore((s) => s.appState?.skills ?? {})
-
   if (e.kind === 'skill') {
-    const sk = skills[e.skill!]
+    // Real minutes: pick how long the Thenx session took (the running clock is only a hint).
+    const elapsed = Math.round(minutesBetween(stepStartedAt, Date.now()))
     return (
       <section className="panel deep stack" style={{ gap: 18, alignItems: 'center', textAlign: 'center', padding: 26 }}>
         <Icon name={e.icon} size={84} strokeWidth={1.1} />
-        <Label>Thenx · {sk?.name} · Lvl {sk?.level} {sk?.level_name} · {sk?.pct}%</Label>
+        <Label>Thenx · {e.short}</Label>
         <p style={{ fontSize: 16 }}>{e.note}</p>
-        <button className="btn btn-filled btn-big btn-block btn-caps" style={{ minHeight: 76 }}
-          onClick={() => completeStep(idx, { done: true, minutes: Math.max(1, Math.round(minutesBetween(stepStartedAt, Date.now()))) })}>Done</button>
-        <div className="row" style={{ gap: 16 }}>
-          <button className="link" onClick={() => levelUp(e.skill!)}>Leveled up</button>
-          <button className="link" onClick={() => completeStep(idx, { skipped: true })}>Skip</button>
+        <Label>How long did it take?{elapsed >= 5 ? ` (clock says ${elapsed} min)` : ''}</Label>
+        <div className="grid3" style={{ width: '100%' }}>
+          {[10, 15, 20, 25, 30, 45].map((m) => (
+            <button key={m} className="btn btn-big" onClick={() => completeStep(idx, { done: true, minutes: m })}>{m} min</button>
+          ))}
         </div>
+        <button className="link" onClick={() => completeStep(idx, { skipped: true })}>Skip</button>
       </section>
     )
   }

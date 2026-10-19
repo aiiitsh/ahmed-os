@@ -33,31 +33,37 @@ export function Work() {
       <section className="panel deep stack" style={{ gap: 20, padding: 26, alignItems: 'center' }}>
         {!focus ? (
           <>
-            <Label>Ready</Label>
+            <Label>Real, deep focus · phone away</Label>
             <div className="timer dim" style={{ textShadow: 'none', color: 'var(--dim)' }}>00:00</div>
-            <div className="grid2" style={{ width: '100%' }}>
-              <button className="btn btn-big btn-outline" onClick={() => startFocus('work')}><Icon name="focus" size={22} /> Start work</button>
-              <button className="btn btn-big btn-outline" onClick={() => startFocus('study')}><Icon name="quran" size={22} /> Start study</button>
-            </div>
+            <button className="btn btn-big btn-filled btn-caps btn-block" style={{ minHeight: 72 }} onClick={() => startFocus()}><Icon name="focus" size={22} glow={false} /> Start focus</button>
           </>
         ) : focus.mode === 'focus' ? (
           <>
-            <Label>Focus · {focus.kind}</Label>
+            <Label>Deep focus</Label>
             <div className="timer pulse-text" style={{ fontSize: 'clamp(48px, 16vw, 84px)' }}>{fmtStopwatch(running)}</div>
-            {running > 3 * 3600000 && <span className="chip warn">Still going? Tap Stop if you left.</span>}
-            <div className="grid3" style={{ width: '100%' }}>
-              <button className="btn btn-big" onClick={() => focusBreak('break')}>Break</button>
-              <button className="btn btn-big" onClick={() => focusBreak('lost_focus')}>Lost focus</button>
-              <button className="btn btn-big btn-filled" onClick={focusStop}>Stop</button>
-            </div>
+            {running > 3 * 3600000 ? (
+              <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
+                <span className="small">Still going, or did you forget to stop? Save only:</span>
+                <div className="row wrap" style={{ gap: 8, justifyContent: 'center' }}>
+                  {[60, 90, 120, 180].map((m) => <button key={m} className="chip" onClick={() => focusStop(m)}>{fmtDur(m)}</button>)}
+                  <button className="chip on" onClick={() => focusStop()}>It was real · stop now</button>
+                </div>
+              </div>
+            ) : (
+              <div className="grid3" style={{ width: '100%' }}>
+                <button className="btn btn-big" onClick={() => focusBreak('break')}>Break</button>
+                <button className="btn btn-big" onClick={() => focusBreak('lost_focus')}>Lost focus</button>
+                <button className="btn btn-big btn-filled" onClick={() => focusStop()}>Stop</button>
+              </div>
+            )}
           </>
         ) : (
           <>
-            <Label>Break · {focus.kind}</Label>
+            <Label>Break</Label>
             <div className="timer sm" style={{ fontSize: 'clamp(40px, 12vw, 60px)' }}>{fmtStopwatch(running)}</div>
             <div className="grid2" style={{ width: '100%' }}>
               <button className="btn btn-big btn-filled btn-caps" onClick={focusResume}>Back to it</button>
-              <button className="btn btn-big" onClick={focusStop}>Stop</button>
+              <button className="btn btn-big" onClick={() => focusStop()}>Stop</button>
             </div>
           </>
         )}

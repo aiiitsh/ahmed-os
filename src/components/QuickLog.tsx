@@ -2,14 +2,14 @@ import { useState } from 'react'
 import { create } from 'zustand'
 import { Icon } from './Icon'
 import { Sheet, Stepper, Label } from './ui'
-import { JuzGrid, dueJuz } from './Quran'
+import { QuranBrowser } from './Quran'
 import { CARDIO, DAILY_ROUTINE, DURATIONS, FRENCH_ACTIVITIES, FRENCH_MINUTES, SWIM_INTENSITY } from '../data/program'
-import { logCardio, logFrench, logRoutine, logSwim, quranTap, routineToday, startFocus, swimPlan } from '../lib/actions'
+import { logCardio, logFrench, logHike, logRoutine, logSwim, routineToday, startFocus, swimPlan } from '../lib/actions'
 import type { SwimDone } from '../lib/progression'
 import { useStore } from '../lib/store'
-import { localDate } from '../lib/time'
+import { fmtDur, localDate } from '../lib/time'
 
-export type SheetKey = 'swim' | 'run' | 'squash' | 'routine' | 'quran' | 'french' | 'focus'
+export type SheetKey = 'swim' | 'run' | 'squash' | 'hike' | 'routine' | 'quran' | 'french' | 'focus'
 
 export const useSheet = create<{ open: SheetKey | null }>(() => ({ open: null }))
 export const openSheet = (k: SheetKey) => useSheet.setState({ open: k })
@@ -30,9 +30,12 @@ export function Segmented<T extends string>({ value, options, onChange, warn }: 
   )
 }
 
+type Ago = '0' | '1' | '2'
+const AGO: [Ago, string][] = [['0', 'Today'], ['1', 'Yesterday'], ['2', '2 days ago']]
+
 function SwimSheet() {
   const plan = useStore((s) => s.appState?.settings?.swim) ?? swimPlan()
-  const [daysAgo, setDaysAgo] = useState(0)
+  const [daysAgo, setDaysAgo] = useState<Ago>('0')
   const [minutes, setMinutes] = useState(plan.target_min)
   const [rest, setRest] = useState(plan.rest_s)
   const [intensity, setIntensity] = useState<SwimDone['intensity']>('moderate')
@@ -47,7 +50,7 @@ function SwimSheet() {
       </div>
       <div className="stack" style={{ gap: 8 }}>
         <Label>When</Label>
-        <Segmented value={String(daysAgo) as '0' | '1'} options={[['0', 'Today'], ['1', 'Yesterday']]} onChange={(v) => setDaysAgo(Number(v))} />
+        <Segmented value={daysAgo} options={AGO} onChange={setDaysAgo} />
       </div>
       <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
         <Label>How long did you last?</Label>
@@ -61,7 +64,7 @@ function SwimSheet() {
         <Label>Intensity</Label>
         <Segmented value={intensity} options={SWIM_INTENSITY as [SwimDone['intensity'], string][]} onChange={setIntensity} />
       </div>
-      <button className="btn btn-filled btn-big btn-caps" onClick={() => { logSwim({ minutes, rest_s: rest, intensity }, daysAgo); close() }}>Save swim</button>
+      <button className="btn btn-filled btn-big btn-caps" onClick={() => { logSwim({ minutes, rest_s: rest, intensity }, Number(daysAgo)); close() }}>Save swim</button>
     </div>
   )
 }
@@ -69,8 +72,10 @@ function SwimSheet() {
 function CardioSheet({ sport }: { sport: 'run' | 'squash' }) {
   const c = CARDIO[sport]
   const [mins, setMins] = useState<number>(c.def)
+  const [daysAgo, setDaysAgo] = useState<Ago>('0')
   return (
     <div className="stack" style={{ gap: 16 }}>
+      <Segmented value={daysAgo} options={AGO} onChange={setDaysAgo} />
       <div className="row wrap" style={{ gap: 8 }}>
         {DURATIONS.map((d) => (
           <button key={d} className={`chip${mins === d ? ' on' : ''}`} onClick={() => setMins(d)}>{d} min</button>
@@ -78,11 +83,34 @@ function CardioSheet({ sport }: { sport: 'run' | 'squash' }) {
       </div>
       <div className="stack">
         {c.variants.map(([k, label]) => (
-          <button key={k} className="btn btn-big btn-block" onClick={() => { logCardio(sport, k, mins); close() }}>
+          <button key={k} className="btn btn-big btn-block" onClick={() => { logCardio(sport, k, mins, Number(daysAgo)); close() }}>
             <Icon name={c.icon} size={22} /> {label}
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+function HikeSheet() {
+  const [km, setKm] = useState(10)
+  const [min, setMin] = useState(180)
+  const [daysAgo, setDaysAgo] = useState<Ago>('0')
+  return (
+    <div className="stack" style={{ gap: 18 }}>
+      <div className="stack" style={{ gap: 8 }}>
+        <Label>When</Label>
+        <Segmented value={daysAgo} options={AGO} onChange={setDaysAgo} />
+      </div>
+      <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
+        <Label>Distance</Label>
+        <Stepper value={`${km}`} sub="km" onMinus={() => setKm((k) => Math.max(1, k - 1))} onPlus={() => setKm((k) => k + 1)} />
+      </div>
+      <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
+        <Label>Time</Label>
+        <Stepper value={fmtDur(min)} sub="± 30 min" onMinus={() => setMin((m) => Math.max(30, m - 30))} onPlus={() => setMin((m) => m + 30)} />
+      </div>
+      <button className="btn btn-filled btn-big btn-caps" onClick={() => { logHike(km, min, Number(daysAgo)); close() }}>Save hike</button>
     </div>
   )
 }
@@ -110,24 +138,7 @@ function RoutineSheet() {
 }
 
 function QuranSheet() {
-  const juz = useStore((s) => s.juz)
-  const due = dueJuz(juz)
-  return (
-    <div className="stack" style={{ gap: 16 }}>
-      {due.length > 0 && (
-        <div className="stack">
-          <Label>Revise next due</Label>
-          <div className="grid3">
-            {due.map((n) => (
-              <button key={n} className="btn btn-outline btn-big" onClick={() => { quranTap(n, 'revise'); close() }}>Juz {n}</button>
-            ))}
-          </div>
-        </div>
-      )}
-      <Label>Tap a juz to log revision</Label>
-      <JuzGrid juz={juz} mode="revise" onTap={close} />
-    </div>
-  )
+  return <QuranBrowser />
 }
 
 function FrenchSheet() {
@@ -152,15 +163,15 @@ function FrenchSheet() {
 
 function FocusSheet() {
   return (
-    <div className="grid2">
-      <button className="btn btn-big btn-outline" onClick={() => { startFocus('work'); close() }}><Icon name="focus" size={22} /> Start work</button>
-      <button className="btn btn-big btn-outline" onClick={() => { startFocus('study'); close() }}><Icon name="quran" size={22} /> Start study</button>
+    <div className="stack" style={{ gap: 12 }}>
+      <p className="muted small">Real, deep focus only. Phone away. Tap Stop when you drift.</p>
+      <button className="btn btn-big btn-filled btn-caps" onClick={() => { startFocus(); close() }}><Icon name="focus" size={22} glow={false} /> Start focus</button>
     </div>
   )
 }
 
 const TITLES: Record<SheetKey, string> = {
-  swim: 'Log swim', run: 'Run', squash: 'Squash', routine: 'Core & posture routine', quran: 'Quran', french: 'French', focus: 'Focus',
+  swim: 'Log swim', run: 'Run', squash: 'Squash', hike: 'Log hike', routine: 'Core & posture routine', quran: 'Quran', french: 'French', focus: 'Focus',
 }
 
 export function QuickSheets() {
@@ -169,6 +180,7 @@ export function QuickSheets() {
     <Sheet open={open != null} onClose={close} title={open ? TITLES[open] : undefined}>
       {open === 'swim' && <SwimSheet />}
       {(open === 'run' || open === 'squash') && <CardioSheet key={open} sport={open} />}
+      {open === 'hike' && <HikeSheet />}
       {open === 'routine' && <RoutineSheet />}
       {open === 'quran' && <QuranSheet />}
       {open === 'french' && <FrenchSheet />}
@@ -195,5 +207,6 @@ export function useCardioToday() {
   const today = localDate()
   const last = (sport: string) => [...logs].reverse().find((l) => l.local_date === today && l.type === 'cardio' && l.data.sport === sport)
   const sub = (sport: string) => { const l = last(sport); return l ? `✓ ${l.data.minutes}M` : '' }
-  return { swim: sub('swim'), run: sub('run'), squash: sub('squash') }
+  const hike = last('hike')
+  return { swim: sub('swim'), run: sub('run'), squash: sub('squash'), hike: hike ? `✓ ${hike.data.km} KM` : '' }
 }

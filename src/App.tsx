@@ -5,7 +5,7 @@ import { demoMode, demoData } from './lib/demo'
 import { load, seedIfNeeded, set, useStore, get } from './lib/store'
 import { setErrorHandler, startQueue } from './lib/queue'
 import { toast } from './lib/toast'
-import { focusBreak, focusResume, goToSleep, startFocus, wokeUp } from './lib/actions'
+import { autoCloseStaleSession, focusBreak, focusResume, startFocus } from './lib/actions'
 import { GlowDefs, Toasts } from './components/ui'
 import { Icon } from './components/Icon'
 import { QuickSheets, useSheet } from './components/QuickLog'
@@ -77,6 +77,7 @@ function Live() {
         set({ loadError: e?.message || 'Could not set up your data' })
       }
       if (!cancelled) await load(true)
+      autoCloseStaleSession()
       startQueue()
     })()
 
@@ -221,7 +222,7 @@ function TabLink({ t, on }: { t: { r: Route; icon: string; label: string }; on: 
   )
 }
 
-/** Laptop: B or S = sleep, W = woke, F = focus toggle. */
+/** Laptop: F = focus start / break / back. */
 function useShortcuts() {
   useEffect(() => {
     const k = (e: KeyboardEvent) => {
@@ -230,11 +231,9 @@ function useShortcuts() {
       if (el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable)) return
       if (get().appState?.active_session) return
       const key = e.key.toLowerCase()
-      if (key === 'b' || key === 's') goToSleep()
-      else if (key === 'w') wokeUp()
-      else if (key === 'f') {
+      if (key === 'f') {
         const f = get().appState?.focus
-        if (!f) startFocus('work')
+        if (!f) startFocus()
         else if (f.mode === 'focus') focusBreak('break')
         else focusResume()
       }

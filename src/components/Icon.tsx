@@ -3,7 +3,7 @@
 import type { LucideIcon } from 'lucide-react'
 import {
   ArrowBigUpDash, ArrowUpFromLine, BicepsFlexed, Bug, ChevronsUp, CornerLeftUp, DoorOpen, Dumbbell,
-  Dog, Expand, Footprints, Hammer, Hand, Luggage, MoveHorizontal, PersonStanding, Shield, Timer, UserRound,
+  Dog, Expand, Footprints, Hammer, Hand, Luggage, Mountain, MoveHorizontal, PersonStanding, Shield, Timer, UserRound,
 } from 'lucide-react'
 
 const LUCIDE: Record<string, LucideIcon> = {
@@ -26,6 +26,7 @@ const LUCIDE: Record<string, LucideIcon> = {
   hollow: Shield,
   birddog: Dog,
   carry: Luggage,
+  hike: Mountain,
 }
 
 const P: Record<string, string> = {

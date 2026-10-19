@@ -1,8 +1,7 @@
 import { EX, GOALS, GROUPS } from '../data/program'
 import type { Data } from './store'
 import type { Group, HabitEntry, Log, Workout, WorkoutSet, FocusBlock } from './types'
-import { groupNights, type Night } from './sleep'
-import { addDays, daysBetween, dow, inWeek, localDate, localMinutes, minutesBetween, weekDays } from './time'
+import { addDays, daysBetween, dow, inWeek, localDate, minutesBetween, weekDays } from './time'
 
 // ---------- muscle credit ----------
 
@@ -33,39 +32,7 @@ export function levelFor(pct: number): Level {
   return 'peak'
 }
 
-// ---------- sleep ----------
-
-/** Bedtimes before noon are treated as after midnight (+24h) so averages wrap correctly. */
-export const bedMinutes = (iso: string) => {
-  const m = localMinutes(iso)
-  return m < 12 * 60 ? m + 1440 : m
-}
-
 const mean = (xs: number[]) => (xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null)
-const sd = (xs: number[]) => {
-  const m = mean(xs)
-  if (m == null || xs.length < 2) return null
-  return Math.sqrt(xs.reduce((a, x) => a + (x - m) ** 2, 0) / xs.length)
-}
-
-export function sleepStats(nights: Night[]) {
-  const withSleep = nights.filter((n) => n.asleep > 0)
-  const beds = withSleep.filter((n) => n.bed).map((n) => bedMinutes(n.bed!))
-  const wakes = withSleep.filter((n) => n.wake).map((n) => localMinutes(n.wake!))
-  const naps = nights.flatMap((n) => n.naps)
-  return {
-    nights: withSleep.length,
-    avgMinutes: mean(withSleep.map((n) => n.asleep)),
-    avgBed: mean(beds),
-    avgWake: mean(wakes),
-    bedSpread: sd(beds),
-    avgWakings: mean(withSleep.map((n) => n.wakings)),
-    wakings: withSleep.reduce((a, n) => a + n.wakings, 0),
-    reasons: withSleep.flatMap((n) => n.reasons),
-    naps: naps.length,
-    napMinutes: nights.reduce((a, n) => a + n.napMinutes, 0),
-  }
-}
 
 // ---------- focus ----------
 
@@ -143,31 +110,27 @@ export function weekStats(data: Data, start: string) {
   const wIds = new Set(workouts.map((w) => w.id))
   const sets = data.sets.filter((s) => wIds.has(s.workout_id))
   const logs = wk(data.logs, (l) => l.local_date)
-  const sleep = groupNights(data.sleep).filter((n) => inWeek(n.date, start))
   const focus = wk(data.focus, (f) => f.local_date)
   const byType = (t: string) => logs.filter((l) => l.type === t)
 
   const groups = groupSets(workouts, sets)
   const feelSets = sets.filter((s) => s.feel && !s.skipped)
   const hard = feelSets.filter((s) => s.feel === 'hard').length
-  const bw = data.logs.filter((l) => l.type === 'bodyweight').sort((a, b) => a.logged_at.localeCompare(b.logged_at))
-  const bwIn = bw.filter((l) => inWeek(l.local_date, start))
-  const bwBefore = bw.filter((l) => l.local_date < start)
-  const quran = byType('quran')
+  const quran = data.quran.filter((e) => inWeek(e.local_date, start))
   const french = byType('french')
   const frenchMin = french.reduce((a, l) => a + (l.data.minutes || 0), 0)
 
-  const sl = sleepStats(sleep)
   const fo = focusStats(focus)
   const byDayCode = { A: 0, B: 0, C: 0 }
   for (const w of workouts) byDayCode[w.day_code]++
 
-  const quranDays = new Set(quran.map((l) => l.local_date)).size
+  const quranDays = new Set(quran.map((e) => e.local_date)).size
+  const routineDays = new Set(byType('stretch').filter((l) => l.data.which === 'daily_routine').map((l) => l.local_date)).size
+  // Ring = training, focus and the daily routine. Quran/French have no targets.
   const ring = [
     Math.min(1, workouts.length / GOALS.sessions),
-    Math.min(1, (sl.avgMinutes ?? 0) / 60 / GOALS.sleepHours),
     Math.min(1, fo.total / 60 / GOALS.focusHours),
-    Math.min(1, quranDays / GOALS.quranDays),
+    Math.min(1, routineDays / GOALS.routineDays),
   ]
 
   return {
@@ -176,14 +139,13 @@ export function weekStats(data: Data, start: string) {
     cardio: byType('cardio'),
     stretches: byType('stretch'),
     hipFlexor: byType('stretch').filter((l) => l.data.which === 'hip_flexors' || l.data.which === 'daily_routine').length,
-    routineDays: new Set(byType('stretch').filter((l) => l.data.which === 'daily_routine').map((l) => l.local_date)).size,
+    routineDays,
     swims: byType('cardio').filter((l) => l.data.sport === 'swim'),
+    hikes: byType('cardio').filter((l) => l.data.sport === 'hike'),
     flags: byType('flag'),
-    proteinDays: new Set(byType('protein').map((l) => l.local_date)).size,
-    bodyweight: { last: bwIn.at(-1)?.data.kg ?? null, before: bwBefore.at(-1)?.data.kg ?? null },
     hardPct: feelSets.length ? hard / feelSets.length : 0,
-    sleep, sl, focus, fo,
-    quranDays, juzRevised: new Set(quran.map((l) => l.data.juz)).size,
+    focus, fo,
+    quran, quranDays,
     frenchMin, frenchDays: new Set(french.filter((l) => l.data.minutes > 0).map((l) => l.local_date)).size,
     unitsFinished: french.filter((l) => l.data.activity === 'finished_unit').length,
     ringPct: ring.reduce((a, b) => a + b, 0) / ring.length,
@@ -216,14 +178,6 @@ export function insights(w: WeekStats, prev: WeekStats, extra: { streak?: { now:
     ? { bad: true, text: `Daily core & posture routine on ${w.routineDays}/7 days. Aim for 5+.` }
     : { bad: false, text: `Daily core & posture routine on ${w.routineDays}/7 days.` })
   if (w.hipFlexor < 2) out.push({ bad: true, text: `Hip flexors stretched ${w.hipFlexor}×. At least 2× a week for APT.` })
-  if (w.sl.avgMinutes != null && w.sl.avgMinutes < 7 * 60) out.push({ bad: true, text: `Sleep averaged ${(w.sl.avgMinutes / 60).toFixed(1)} h. Target 7.5–8.5 h.` })
-  else if (w.sl.avgMinutes != null) out.push({ bad: false, text: `Sleep averaged ${(w.sl.avgMinutes / 60).toFixed(1)} h.` })
-  if (w.sl.bedSpread != null && w.sl.bedSpread > 90) out.push({ bad: true, text: `Bedtime spread ${Math.round(w.sl.bedSpread)} min. Keep it under 60.` })
-  if (w.sl.avgWakings != null && w.sl.avgWakings >= 1.5) {
-    const pee = w.sl.reasons.filter((r) => r === 'pee').length
-    out.push({ bad: true, text: `Woke up ${w.sl.avgWakings.toFixed(1)}× a night on average${pee ? ` (${pee}× to pee: try less fluid in the last 2 h)` : ''}.` })
-  }
-  if (w.sl.naps) out.push({ bad: false, text: `${w.sl.naps} nap${w.sl.naps === 1 ? '' : 's'}, ${Math.round(w.sl.napMinutes)} min total.` })
   const longest = (xs: Log[]) => Math.max(0, ...xs.map((l) => Number(l.data.minutes) || 0))
   if (w.swims.length || prev.swims.length) {
     const a = longest(w.swims), b = longest(prev.swims)
@@ -231,10 +185,10 @@ export function insights(w: WeekStats, prev: WeekStats, extra: { streak?: { now:
   }
   if (w.hardPct > 0.5) out.push({ bad: true, text: 'Lots of Hard. Hold weights next week / deload.' })
   if (w.flags.length >= 2) out.push({ bad: true, text: `Back felt tight ${w.flags.length} times. Check which days.` })
-  if (w.quranDays < 5) out.push({ bad: true, text: `Quran on ${w.quranDays}/7 days.` })
-  else out.push({ bad: false, text: `Quran on ${w.quranDays}/7 days.` })
-  if (w.frenchMin < 90) out.push({ bad: true, text: `French ${w.frenchMin} min. Target is 150.` })
-  else out.push({ bad: false, text: `French ${w.frenchMin} min.` })
+  // No targets for Quran/French: mention them only when they happened.
+  if (w.quran.length) out.push({ bad: false, text: `Quran on ${w.quranDays} day${w.quranDays === 1 ? '' : 's'} (${w.quran.length} surah entries).` })
+  if (w.frenchMin) out.push({ bad: false, text: `French ${w.frenchMin} min.` })
+  if (w.hikes.length) out.push({ bad: false, text: `Hiked ${w.hikes.reduce((a, l) => a + (Number(l.data.km) || 0), 0)} km.` })
   if (w.fo.longest > 0 || prev.fo.longest > 0) {
     const up = w.fo.longest >= prev.fo.longest
     out.push({ bad: !up, text: `Longest focus block ${Math.round(w.fo.longest)} min (last week ${Math.round(prev.fo.longest)}).` })
@@ -265,5 +219,48 @@ export function reminders(data: Data, today = localDate()): string[] {
   }
   const flags = data.logs.filter((l) => l.type === 'flag' && inWeek(l.local_date, start)).length
   if (flags >= 2) out.push(`Back tight ${flags}× this week`)
+  return out
+}
+
+// ---------- focus coach (weekly suggestions) ----------
+
+/**
+ * Rule-based suggestions on how to focus more, from this week's focus blocks and what else you did
+ * (training, swims, hikes). Compares focus on active days vs rest days, time of day, block length.
+ */
+export function focusCoach(w: WeekStats, prev: WeekStats): Insight[] {
+  const out: Insight[] = []
+  const blocks = w.focus.filter((b) => b.block_type === 'focus')
+  if (!blocks.length) {
+    out.push({ bad: true, text: 'No focus tracked this week. Start the timer once a day, even for 25 minutes; the trend only shows up with data.' })
+    return out
+  }
+  const perDay = new Map<string, number>()
+  for (const b of blocks) perDay.set(b.local_date, (perDay.get(b.local_date) ?? 0) + minutesBetween(b.started_at, b.ended_at))
+  const activeDays = new Set([
+    ...w.workouts.map((x) => x.local_date),
+    ...w.swims.map((l) => l.local_date),
+    ...w.hikes.map((l) => l.local_date),
+  ])
+  const act = [...perDay].filter(([d]) => activeDays.has(d)).map(([, m]) => m)
+  const rest = [...perDay].filter(([d]) => !activeDays.has(d)).map(([, m]) => m)
+  const a = mean(act), r = mean(rest)
+  if (a != null && r != null) {
+    if (a > r * 1.15) out.push({ bad: false, text: `You focus more on days you train or swim (${Math.round(a)} vs ${Math.round(r)} min). Move first, then do your deep work.` })
+    else if (r > a * 1.15) out.push({ bad: true, text: `Training days cost you focus (${Math.round(a)} vs ${Math.round(r)} min on rest days). Try training after your main focus block.` })
+  }
+  // Time of day of the longest blocks.
+  const hourOf = (iso: string) => Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Toronto', hour: 'numeric', hourCycle: 'h23' }).format(new Date(iso)))
+  const top = [...blocks].sort((x, y) => minutesBetween(y.started_at, y.ended_at) - minutesBetween(x.started_at, x.ended_at)).slice(0, 3)
+  const hrs = top.map((b) => hourOf(b.started_at))
+  const avgH = Math.round(hrs.reduce((p, h) => p + h, 0) / hrs.length)
+  out.push({ bad: false, text: `Your best blocks start around ${String(avgH).padStart(2, '0')}:00. Protect that time: phone in another room.` })
+  // Block length.
+  const longest = w.fo.longest
+  if (longest > 150 && w.fo.rest === 0) out.push({ bad: true, text: `Blocks up to ${Math.round(longest)} min with no breaks. Real focus usually fades after 60–90 min: take a 10 min break, then go again.` })
+  if (w.fo.lost >= 3) out.push({ bad: true, text: `Lost focus ${w.fo.lost}× this week. Note what pulled you away; it's usually the phone.` })
+  const tot = w.fo.total, ptot = prev.fo.total
+  if (ptot > 0) out.push({ bad: tot < ptot, text: `Focus ${Math.round(tot / 60 * 10) / 10} h this week vs ${Math.round(ptot / 60 * 10) / 10} h last week.` })
+  if (w.routineDays >= 4) out.push({ bad: false, text: 'The daily posture routine is a good focus primer: 6 minutes, then start the timer.' })
   return out
 }

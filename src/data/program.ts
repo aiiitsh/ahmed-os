@@ -11,9 +11,9 @@ export interface Exercise {
   sets: number
   lo: number
   hi: number
-  /** start weight (kg) for weighted, null otherwise */
+  /** start weight (lb) for weighted, null otherwise */
   start: number | null
-  /** kg step for weighted; rep/second increment otherwise */
+  /** lb step for weighted; rep/second increment otherwise */
   step: number
   swap?: string
   credit: Partial<Record<Group, number>>
@@ -38,31 +38,31 @@ export const repStep = (e: Exercise) => e.repInc ?? (e.kind === 'timed' ? e.step
 export const EXERCISES: Exercise[] = [
   { key: 'skill_muscleup', name: 'Muscle-up session (Thenx)', short: 'Muscle-up', kind: 'skill', days: ['A'], sets: 0, lo: 0, hi: 0, start: null, step: 0,
     credit: { pull: 4, push: 2, arms: 2, core: 1 }, note: "Open Thenx, do today's muscle-up session, tap Done.", icon: 'muscleup', skill: 'muscleup' },
-  { key: 'db_curl', name: 'Dumbbell curl', short: 'Curl', kind: 'weighted', days: ['A'], sets: 3, lo: 10, hi: 12, start: 10, step: 2, swap: 'Cable curl',
+  { key: 'db_curl', name: 'Dumbbell curl', short: 'Curl', kind: 'weighted', days: ['A'], sets: 3, lo: 10, hi: 12, start: 20, step: 5, swap: 'Cable curl',
     credit: { arms: 3 }, note: 'Elbows pinned, no swinging.', icon: 'curl' },
-  { key: 'db_oh_triceps', name: 'Overhead dumbbell triceps extension', short: 'Overhead triceps ext.', kind: 'weighted', days: ['A'], sets: 3, lo: 10, hi: 12, start: 12, step: 2, swap: 'Cable rope pushdown',
+  { key: 'db_oh_triceps', name: 'Overhead dumbbell triceps extension', short: 'Overhead triceps ext.', kind: 'weighted', days: ['A'], sets: 3, lo: 10, hi: 12, start: 25, step: 5, swap: 'Cable rope pushdown',
     credit: { arms: 3 }, note: 'Full stretch at the bottom.', icon: 'ohtriceps' },
-  { key: 'db_lateral', name: 'Dumbbell lateral raise', short: 'Lateral raise', kind: 'weighted', days: ['A'], sets: 3, lo: 12, hi: 15, start: 6, step: 1, swap: 'Cable lateral raise',
+  { key: 'db_lateral', name: 'Dumbbell lateral raise', short: 'Lateral raise', kind: 'weighted', days: ['A'], sets: 3, lo: 12, hi: 15, start: 12.5, step: 2.5, swap: 'Cable lateral raise',
     credit: { shoulders: 3 }, note: 'Lead with elbows, slight lean.', icon: 'lateral' },
   { key: 'hollow_hold', name: 'Hollow body hold', short: 'Hollow hold', kind: 'timed', days: ['A'], sets: 3, lo: 20, hi: 40, start: null, step: 5,
     credit: { core: 3 }, note: 'Lower back pressed into the floor, ribs down. The core move behind the muscle-up.', icon: 'hollow' },
 
   { key: 'skill_planche', name: 'Planche session (Thenx)', short: 'Planche', kind: 'skill', days: ['B'], sets: 0, lo: 0, hi: 0, start: null, step: 0,
     credit: { push: 4, shoulders: 2, core: 2, arms: 1 }, note: "Open Thenx, do today's planche session, tap Done.", icon: 'planche', skill: 'planche' },
-  { key: 'db_hammer', name: 'Hammer curl', short: 'Hammer curl', kind: 'weighted', days: ['B'], sets: 3, lo: 10, hi: 12, start: 10, step: 2, swap: 'Rope hammer curl',
+  { key: 'db_hammer', name: 'Hammer curl', short: 'Hammer curl', kind: 'weighted', days: ['B'], sets: 3, lo: 10, hi: 12, start: 20, step: 5, swap: 'Rope hammer curl',
     credit: { arms: 3 }, note: 'Neutral grip, slow down.', icon: 'hammer' },
-  { key: 'db_reardelt', name: 'Dumbbell rear-delt fly', short: 'Rear-delt fly', kind: 'weighted', days: ['B'], sets: 3, lo: 12, hi: 15, start: 5, step: 1, swap: 'Cable face pull',
+  { key: 'db_reardelt', name: 'Dumbbell rear-delt fly', short: 'Rear-delt fly', kind: 'weighted', days: ['B'], sets: 3, lo: 12, hi: 15, start: 10, step: 2.5, swap: 'Cable face pull',
     credit: { shoulders: 3 }, note: 'Chest down, pull wide. Good for posture.', icon: 'reardelt' },
   { key: 'hanging_knee_raise', name: 'Hanging knee raise', short: 'Knee raise', kind: 'bodyweight', days: ['B'], sets: 3, lo: 8, hi: 15, start: null, step: 1, swap: "Captain's chair knee raise",
     credit: { core: 3 }, note: 'Curl the pelvis up. No swinging.', icon: 'kneeraise' },
   { key: 'side_plank', name: 'Side plank (each side)', short: 'Side plank', kind: 'timed', days: ['B'], sets: 3, lo: 30, hi: 60, start: null, step: 5,
     credit: { core: 3 }, note: 'Straight line, hips high.', icon: 'sideplank' },
-  { key: 'neck_curl_ext', name: 'Neck curl + extension (light plate)', short: 'Neck curl + extension', kind: 'weighted', days: ['B'], sets: 2, lo: 15, hi: 20, start: 5, step: 2.5, swap: 'Neck harness',
+  { key: 'neck_curl_ext', name: 'Neck curl + extension (light plate)', short: 'Neck curl + extension', kind: 'weighted', days: ['B'], sets: 2, lo: 15, hi: 20, start: 10, step: 2.5, swap: 'Neck harness',
     credit: { neck: 2 }, note: 'Very light, slow, no pain.', icon: 'neck' },
 
-  { key: 'leg_curl', name: 'Lying/seated leg curl (machine)', short: 'Leg curl', kind: 'weighted', days: ['C'], sets: 3, lo: 10, hi: 12, start: 30, step: 5, swap: 'Seated leg curl',
+  { key: 'leg_curl', name: 'Lying/seated leg curl (machine)', short: 'Leg curl', kind: 'weighted', days: ['C'], sets: 3, lo: 10, hi: 12, start: 65, step: 10, swap: 'Seated leg curl',
     credit: { posterior: 3 }, note: 'Hamstrings pull the pelvis back into place.', icon: 'legcurl' },
-  { key: 'hip_thrust_machine', name: 'Hip thrust machine', short: 'Hip thrust', kind: 'weighted', days: ['C'], sets: 2, lo: 10, hi: 10, start: 40, step: 5, swap: 'Glute bridge',
+  { key: 'hip_thrust_machine', name: 'Hip thrust machine', short: 'Hip thrust', kind: 'weighted', days: ['C'], sets: 2, lo: 10, hi: 10, start: 90, step: 10, swap: 'Glute bridge',
     credit: { posterior: 2 }, note: "Maintain only. Don't chase weight.", icon: 'hipthrust', maintain: true },
   { key: 'back_ext_45', name: '45° back extension, glute-focused', short: '45° back extension', kind: 'bodyweight', days: ['C'], sets: 2, lo: 12, hi: 15, start: null, step: 1,
     credit: { posterior: 2 }, note: "Round slightly, squeeze glutes, don't arch.", icon: 'backext' },
@@ -71,7 +71,7 @@ export const EXERCISES: Exercise[] = [
   { key: 'bird_dog', name: 'Bird dog (each side)', short: 'Bird dog', kind: 'bodyweight', days: ['C'], sets: 3, lo: 8, hi: 12, start: null, step: 1,
     credit: { core: 3 }, note: 'Reach long, hips level, no twisting. Teaches you to sit and walk tall.', icon: 'birddog' },
   { key: 'suitcase_carry', name: 'Suitcase carry (one dumbbell, each side)', short: 'Suitcase carry', kind: 'weighted', secs: true, repInc: 5,
-    days: ['C'], sets: 3, lo: 30, hi: 45, start: 16, step: 2,
+    days: ['C'], sets: 3, lo: 30, hi: 45, start: 35, step: 5,
     credit: { core: 3 }, note: "Walk tall, don't lean toward the weight. This is walking-posture training.", icon: 'carry' },
   { key: 'stretch_hip_flexor', name: 'Half-kneeling hip flexor stretch (each side)', short: 'Hip flexor stretch', kind: 'stretch', days: ['C'], sets: 2, lo: 45, hi: 45, start: null, step: 0,
     credit: {}, note: 'Squeeze the back glute. Key stretch for APT.', icon: 'hipflexor', stretchWhich: 'hip_flexors' },
@@ -111,8 +111,8 @@ export const SKILLS_SEED: Record<string, Skill> = {
 }
 
 /** Starting target per exercise (seeded with calibrated=false). */
-export function seedTarget(e: Exercise): { weight_kg: number | null; reps: number } {
-  return { weight_kg: e.start, reps: e.kind === 'skill' ? 0 : e.lo }
+export function seedTarget(e: Exercise): { weight_lb: number | null; reps: number } {
+  return { weight_lb: e.start, reps: e.kind === 'skill' ? 0 : e.lo }
 }
 
 // --- Daily core & posture routine (~6 min, every day) ---
@@ -134,6 +134,7 @@ export const CARDIO = {
   swim: { label: 'Swim', icon: 'swim', def: 45, variants: [['sprints', 'Sprints'], ['endurance', 'Endurance'], ['technique', 'Technique']] },
   run: { label: 'Run', icon: 'run', def: 30, variants: [['easy', 'Easy'], ['intervals', 'Intervals'], ['long', 'Long']] },
   squash: { label: 'Squash', icon: 'squash', def: 60, variants: [['match', 'Match'], ['drills', 'Drills']] },
+  hike: { label: 'Hike', icon: 'hike', def: 180, variants: [] },
 } as const
 export type Sport = keyof typeof CARDIO
 export const DURATIONS = [20, 30, 45, 60, 90]
@@ -153,5 +154,5 @@ export const FRENCH_ACTIVITIES: [string, string][] = [
 ]
 export const FRENCH_MINUTES = [15, 30, 45, 60]
 
-// Weekly goals (Home ring + Review)
-export const GOALS = { sessions: 4, sleepHours: 7.5, focusHours: 15, quranDays: 7, frenchMinutes: 150, frenchDays: 5 }
+// Weekly goals (Home ring + Review). Quran and French have no targets: doing them is a plus, skipping isn't a minus.
+export const GOALS = { sessions: 4, focusHours: 15, routineDays: 5 }

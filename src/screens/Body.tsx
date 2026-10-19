@@ -1,15 +1,16 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { weekStats, fmt1 } from '../lib/stats'
-import { addDays, fmtDay, localDate, weekStart } from '../lib/time'
-import { adjustTarget, bumpSkillPct, levelUp, logBodyweight, startSession, swimPlan } from '../lib/actions'
+import { fmtDay, fmtDur, minutesBetween, weekStart } from '../lib/time'
+import { adjustTarget, deleteWorkout, logRoutine, routineToday, startSession, swimPlan } from '../lib/actions'
 import { fmtW } from '../lib/format'
-import { DAYS, EX, EXERCISES, GROUPS, isSecs, repStep, type Exercise } from '../data/program'
+import { DAILY_ROUTINE, DAYS, EX, EXERCISES, GROUPS, isSecs, repStep, type Exercise } from '../data/program'
 import type { DayCode } from '../lib/types'
-import { Bar, Label, Sparkline, Stepper } from '../components/ui'
+import { Bar, DeleteX, Label, Sparkline, Stepper } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { BodyMap } from '../components/BodyMap'
 import { Tile, openSheet, useCardioToday } from '../components/QuickLog'
+import { trainingPlan } from '../lib/plan'
 
 export function Body() {
   const data = useStore()
@@ -53,17 +54,16 @@ export function Body() {
       </div>
 
       <div className="cols c2">
+        <Routine />
         <NextPreview />
-        <div className="col">
-          <Cardio />
-          <Skills />
-        </div>
       </div>
 
       <div className="cols c2">
+        <Cardio />
         <Targets />
-        <Bodyweight />
       </div>
+
+      <History />
     </div>
   )
 }
@@ -77,7 +77,8 @@ function targetText(e: Exercise, w: number | null | undefined, r: number | undef
 }
 
 function NextPreview() {
-  const next = useStore((s) => s.appState?.rotation_next ?? 'A')
+  const data = useStore()
+  const next = useMemo(() => trainingPlan(data).day, [data])
   const targets = useStore((s) => s.targets)
   const [pick, setPick] = useState<DayCode>(next)
   const day = DAYS[pick]
@@ -96,7 +97,7 @@ function NextPreview() {
         {day.keys.map((k) => {
           const e = EX[k]
           const t = targets[k]
-          const tgt = targetText(e, t?.weight_kg, t?.reps)
+          const tgt = targetText(e, t?.weight_lb, t?.reps)
           return (
             <div key={k} className="li">
               <Icon name={e.icon} size={22} />
@@ -156,54 +157,11 @@ function Cardio() {
         )}
         <button className="btn btn-outline btn-caps" onClick={() => openSheet('swim')}>Log swim</button>
       </div>
-      <div className="grid2">
+      <div className="grid3">
+        <Tile icon="hike" label="Hike" sub={s.hike} done={!!s.hike} onClick={() => openSheet('hike')} />
         <Tile icon="run" label="Run" sub={s.run} done={!!s.run} onClick={() => openSheet('run')} />
         <Tile icon="squash" label="Squash" sub={s.squash} done={!!s.squash} onClick={() => openSheet('squash')} />
       </div>
-    </section>
-  )
-}
-
-function Skills() {
-  const skills = useStore((s) => s.appState?.skills ?? {})
-  const [showAll, setShowAll] = useState(false)
-  const entries = Object.entries(skills)
-  const active = entries.filter(([, s]) => s.active)
-  const inactive = entries.filter(([, s]) => !s.active)
-  return (
-    <section className="stack">
-      <Label>Thenx skills</Label>
-      {active.map(([k, s]) => (
-        <div key={k} className="panel stack" style={{ gap: 10, padding: 16 }}>
-          <div className="row between">
-            <div className="row" style={{ gap: 10 }}>
-              <Icon name={k === 'planche' ? 'planche' : 'muscleup'} size={26} />
-              <div className="stack" style={{ gap: 3 }}>
-                <span className="strong">{s.name}</span>
-                <span className="label">Lvl {s.level} · {s.level_name}</span>
-              </div>
-            </div>
-            <div className="big-num" style={{ fontSize: 22 }}>{s.pct}%</div>
-          </div>
-          <Bar value={s.pct} max={100} />
-          <div className="row" style={{ gap: 8 }}>
-            <button className="btn grow" onClick={() => bumpSkillPct(k, -5)}>−5%</button>
-            <button className="btn grow" onClick={() => bumpSkillPct(k, 5)}>+5%</button>
-            <button className="btn btn-outline grow" onClick={() => levelUp(k)}>Level up</button>
-          </div>
-        </div>
-      ))}
-      {inactive.length > 0 && (
-        <button className="link" style={{ textAlign: 'left' }} onClick={() => setShowAll((v) => !v)}>
-          {showAll ? '− Hide' : '+'} {inactive.length} inactive skills
-        </button>
-      )}
-      {showAll && inactive.map(([k, s]) => (
-        <div key={k} className="li" style={{ padding: '6px 4px' }}>
-          <span className="grow dim">{s.name}</span>
-          <span className="label">Lvl {s.level} · {s.level_name} · {s.pct}%</span>
-        </div>
-      ))}
     </section>
   )
 }
@@ -228,13 +186,13 @@ function Targets() {
           const f = firstThisWeek(e.key)
           let arrow: 'up' | 'down' | null = null
           if (f) {
-            const dw = (t.weight_kg ?? 0) - (f.weight_kg ?? 0)
+            const dw = (t.weight_lb ?? 0) - (f.weight_lb ?? 0)
             const dr = t.reps - (f.reps ?? 0)
             const d = dw !== 0 ? dw : dr
             arrow = d > 0 ? 'up' : d < 0 ? 'down' : null
           }
           const unit = isSecs(e) ? ' S' : e.kind === 'weighted' ? '' : ' REPS'
-          const val = e.kind === 'weighted' ? `${fmtW(t.weight_kg)} × ${t.reps}${unit}` : `${t.reps}${unit}`
+          const val = e.kind === 'weighted' ? `${fmtW(t.weight_lb)} × ${t.reps}${unit}` : `${t.reps}${unit}`
           return (
             <div key={e.key} className="stack" style={{ gap: 0 }}>
               <button className="li" style={{ width: '100%', textAlign: 'left' }} onClick={() => setOpen(open === e.key ? null : e.key)}>
@@ -247,7 +205,7 @@ function Targets() {
               {open === e.key && (
                 <div className="row wrap" style={{ gap: 16, padding: '6px 0 14px', justifyContent: 'center' }}>
                   {e.kind === 'weighted' && (
-                    <Stepper value={fmtW(t.weight_kg, false)} sub={`weight · step ${e.step}`} onMinus={() => adjustTarget(e.key, -e.step, 0)} onPlus={() => adjustTarget(e.key, e.step, 0)} />
+                    <Stepper value={fmtW(t.weight_lb, false)} sub={`weight · step ${e.step}`} onMinus={() => adjustTarget(e.key, -e.step, 0)} onPlus={() => adjustTarget(e.key, e.step, 0)} />
                   )}
                   <Stepper value={t.reps} sub={isSecs(e) ? 'seconds' : 'reps'}
                     onMinus={() => adjustTarget(e.key, 0, -repStep(e))} onPlus={() => adjustTarget(e.key, 0, repStep(e))} />
@@ -261,31 +219,55 @@ function Targets() {
   )
 }
 
-function Bodyweight() {
-  const logs = useStore((s) => s.logs)
-  const bw = logs.filter((l) => l.type === 'bodyweight').sort((a, b) => a.logged_at.localeCompare(b.logged_at))
-  const last = bw.at(-1)?.data.kg as number | undefined
-  const [val, setVal] = useState<number | null>(null)
-  const v = val ?? last ?? 70
-  const today = localDate()
-  const loggedThisWeek = bw.some((l) => l.local_date >= weekStart(today))
-  const weeks = Array.from({ length: 8 }, (_, i) => weekStart(addDays(today, -7 * (7 - i))))
-  const series = weeks.map((ws) => {
-    const inW = bw.filter((l) => l.local_date >= ws && l.local_date <= addDays(ws, 6))
-    return inW.length ? (inW.at(-1)!.data.kg as number) : null
-  })
+
+function Routine() {
+  useStore((st) => st.logs)
+  const done = !!routineToday()
   return (
-    <section className="panel stack" style={{ gap: 14 }}>
+    <section className="panel deep stack" style={{ gap: 12 }}>
       <div className="row between">
-        <Label>Bodyweight · weekly</Label>
-        {loggedThisWeek ? <span className="chip on sm">✓ this week</span> : <span className="chip warn sm">due</span>}
+        <div className="stack" style={{ gap: 4 }}>
+          <Label>Every day · 6 min</Label>
+          <div className="title" style={{ fontSize: 18 }}>Core & posture routine</div>
+        </div>
+        {done && <span className="chip on">✓ today</span>}
       </div>
-      <div className="row" style={{ justifyContent: 'center' }}>
-        <Stepper value={v.toFixed(1)} sub="kg" onMinus={() => setVal(Math.round((v - 0.1) * 10) / 10)} onPlus={() => setVal(Math.round((v + 0.1) * 10) / 10)} />
+      <div className="list">
+        {DAILY_ROUTINE.map((r) => (
+          <div key={r.name} className="li" style={{ minHeight: 40, padding: '8px 0' }}>
+            <Icon name={r.icon} size={20} />
+            <span className="grow small">{r.name}</span>
+            <span className="mono small muted">{r.dose}</span>
+          </div>
+        ))}
       </div>
-      <button className="btn btn-filled btn-caps btn-block" onClick={() => { logBodyweight(v); setVal(null) }}>Save</button>
-      <Label>8 weeks</Label>
-      <Sparkline values={series} />
+      <button className={`btn btn-big btn-caps${done ? '' : ' btn-filled'}`} onClick={logRoutine}>{done ? 'Done today ✓' : 'Done'}</button>
+    </section>
+  )
+}
+
+/** Past workouts, with delete (for duplicates or sessions left open by mistake). */
+function History() {
+  const workouts = useStore((st) => st.workouts)
+  const list = [...workouts].sort((a, b) => b.started_at.localeCompare(a.started_at)).slice(0, 20)
+  return (
+    <section className="panel">
+      <div className="panel-head"><Label>Workout history</Label><span className="label">tap × to delete</span></div>
+      {list.length === 0 ? <div className="empty">No workouts yet.</div> : (
+        <div className="list">
+          {list.map((w) => {
+            const mins = w.ended_at ? Math.round(minutesBetween(w.started_at, w.ended_at)) : null
+            return (
+              <div key={w.id} className="li">
+                <span className="mono small" style={{ width: 92 }}>{fmtDay(w.local_date)}</span>
+                <span className="grow small">Day {w.day_code} · {DAYS[w.day_code].name}</span>
+                <span className={`mono small${mins != null && mins > 180 ? ' red-text' : ' muted'}`}>{mins != null ? fmtDur(mins) : '—'}</span>
+                <DeleteX onDelete={() => deleteWorkout(w.id)} />
+              </div>
+            )
+          })}
+        </div>
+      )}
     </section>
   )
 }

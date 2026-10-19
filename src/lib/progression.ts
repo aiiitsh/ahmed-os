@@ -66,6 +66,7 @@ export interface SwimDone {
 /**
  * Next session's rest between 25 m sprints and how long to aim to last.
  * The goal is lasting longer: hit the target → aim 2 min longer; felt easy → rest less.
+ * Moderate and on target also trims 5 s, so rest comes down gradually from what you actually used.
  */
 export function nextSwim(cur: { rest_s: number; target_min: number }, done: SwimDone) {
   const hit = done.minutes >= cur.target_min
@@ -73,7 +74,7 @@ export function nextSwim(cur: { rest_s: number; target_min: number }, done: Swim
   if (done.intensity === 'easy') rest -= 10
   else if (done.intensity === 'moderate' && hit) rest -= 5
   else if (done.intensity === 'intense' && !hit) rest += 5
-  rest = Math.max(15, Math.min(90, rest))
+  rest = Math.max(15, Math.min(150, rest))
   const target_min = hit ? done.minutes + 2 : Math.max(cur.target_min, done.minutes + 1)
   return { rest_s: rest, target_min }
 }

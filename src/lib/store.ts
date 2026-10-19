@@ -3,17 +3,17 @@ import { create } from 'zustand'
 import { supabase } from './supabase'
 import { pendingCount, write, onPending, type Op } from './queue'
 import { addDays, localDate } from './time'
-import { EXERCISES, SKILLS_SEED, seedTarget } from '../data/program'
+import { EXERCISES, seedTarget } from '../data/program'
+import { kgToLb } from './format'
 import type {
-  AppState, FocusBlock, HabitEntry, Juz, Log, SleepSeg, Target, WeeklyReview, Workout, WorkoutSet,
+  AppState, FocusBlock, HabitEntry, Log, QuranEvent, Target, WeeklyReview, Workout, WorkoutSet,
 } from './types'
 
 export interface Data {
   appState: AppState | null
   targets: Record<string, Target>
-  juz: Record<number, Juz>
+  quran: QuranEvent[]
   logs: Log[]
-  sleep: SleepSeg[]
   focus: FocusBlock[]
   workouts: Workout[]
   sets: WorkoutSet[]
@@ -31,7 +31,7 @@ interface StoreState extends Data {
 }
 
 const empty: Data = {
-  appState: null, targets: {}, juz: {}, logs: [], sleep: [], focus: [], workouts: [], sets: [], habits: [], reviews: [],
+  appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [],
 }
 
 export const useStore = create<StoreState>(() => ({
@@ -58,12 +58,9 @@ async function q<T>(p: PromiseLike<{ data: any; error: any }>): Promise<T> {
 export async function seedIfNeeded(userId: string) {
   const existing = await q<AppState[]>(supabase.from('app_state').select('user_id').eq('user_id', userId))
   if (existing.length) return
-  await q(supabase.from('app_state').upsert({ user_id: userId, rotation_next: 'A', skills: SKILLS_SEED, french_unit: 1, settings: { french_level: 'A1', units: 'kg' } }))
+  await q(supabase.from('app_state').upsert({ user_id: userId, rotation_next: 'C', skills: {}, french_unit: 1, settings: { french_level: 'A1' } }))
   await q(supabase.from('exercise_targets').upsert(
     EXERCISES.map((e) => ({ user_id: userId, exercise_key: e.key, ...seedTarget(e), calibrated: false, times_done: 0 })),
-  ))
-  await q(supabase.from('quran_juz').upsert(
-    Array.from({ length: 30 }, (_, i) => ({ user_id: userId, juz: i + 1, memorized: false })),
   ))
 }
 
@@ -85,14 +82,13 @@ export async function load(force = false) {
   loading = true
   try {
     const since = addDays(localDate(), -HISTORY_DAYS)
-    const [app, targets, juz, logs, sleep, focus, workouts, sets, habits, reviews] = await Promise.all([
+    const [app, targets, quran, logs, focus, workouts, sets, habits, reviews] = await Promise.all([
       q<AppState[]>(supabase.from('app_state').select('*')),
       q<Target[]>(supabase.from('exercise_targets').select('*')),
-      q<Juz[]>(supabase.from('quran_juz').select('*').order('juz')),
+      // Full Quran history (small). Tolerate a missing table until migration 003 has been run.
+      q<QuranEvent[]>(supabase.from('quran_events').select('*').order('at').range(0, 49999))
+        .catch((e) => { console.warn('quran_events unavailable (run migration 003):', e?.message); return [] as QuranEvent[] }),
       q<Log[]>(supabase.from('logs').select('*').gte('local_date', since).order('logged_at').range(0, 9999)),
-      // Tolerate a missing table until migration 002 has been run.
-      q<SleepSeg[]>(supabase.from('sleep_segments').select('*').gte('end_at', `${since}T00:00:00Z`).order('end_at').range(0, 9999))
-        .catch((e) => { console.warn('sleep_segments unavailable (run migration 002):', e?.message); return [] as SleepSeg[] }),
       q<FocusBlock[]>(supabase.from('focus_blocks').select('*').gte('local_date', since).order('started_at').range(0, 9999)),
       q<Workout[]>(supabase.from('workouts').select('*').gte('local_date', since).order('started_at').range(0, 9999)),
       q<WorkoutSet[]>(supabase.from('workout_sets').select('*').range(0, 19999)),
@@ -102,13 +98,15 @@ export async function load(force = false) {
     if (pendingCount() > 0 && !force) return
     const wIds = new Set(workouts.map((w) => w.id))
     const num = (v: any) => (v == null ? null : Number(v))
-    const tMap = Object.fromEntries(targets.map((t) => [t.exercise_key, { ...t, weight_kg: num(t.weight_kg) }]))
+    // Rows saved before migration 003 still carry kilograms.
+    const lb = (row: any, lbKey: string, kgKey: string) => (row[lbKey] !== undefined ? num(row[lbKey]) : row[kgKey] != null ? kgToLb(Number(row[kgKey])) : null)
+    const tMap = Object.fromEntries(targets.map((t) => [t.exercise_key, { ...t, weight_lb: lb(t, 'weight_lb', 'weight_kg') }]))
     set({
       appState: app[0] ?? null,
       targets: fillTargets(userId, tMap),
-      juz: Object.fromEntries(juz.map((j) => [j.juz, j])),
-      logs, sleep, focus, workouts,
-      sets: sets.filter((s) => wIds.has(s.workout_id)).map((s) => ({ ...s, weight_kg: num(s.weight_kg), next_weight_kg: num(s.next_weight_kg) })),
+      quran, logs, focus, workouts,
+      sets: sets.filter((s) => wIds.has(s.workout_id))
+        .map((s) => ({ ...s, weight_lb: lb(s, 'weight_lb', 'weight_kg'), next_weight_lb: lb(s, 'next_weight_lb', 'next_weight_kg') })),
       habits, reviews, loaded: true, loadError: null,
     })
   } catch (e: any) {
@@ -120,9 +118,9 @@ export async function load(force = false) {
 
 // ---------- local + remote helpers ----------
 
-type ListKey = 'logs' | 'sleep' | 'focus' | 'workouts' | 'sets' | 'habits' | 'reviews'
+type ListKey = 'logs' | 'quran' | 'focus' | 'workouts' | 'sets' | 'habits' | 'reviews'
 const TABLE: Record<ListKey, string> = {
-  logs: 'logs', sleep: 'sleep_segments', focus: 'focus_blocks', workouts: 'workouts', sets: 'workout_sets', habits: 'habit_entries', reviews: 'weekly_reviews',
+  logs: 'logs', quran: 'quran_events', focus: 'focus_blocks', workouts: 'workouts', sets: 'workout_sets', habits: 'habit_entries', reviews: 'weekly_reviews',
 }
 
 /** Insert or replace rows in a local list (matched by id), then upsert remotely. */
@@ -160,9 +158,5 @@ export function putTarget(t: Target) {
   void write({ kind: 'upsert', table: 'exercise_targets', values: { ...t, updated_at: new Date().toISOString() } })
 }
 
-export function putJuz(j: Juz) {
-  set((s) => ({ juz: { ...s.juz, [j.juz]: j } }))
-  void write({ kind: 'upsert', table: 'quran_juz', values: j })
-}
 
 export const rawWrite = (op: Op) => write(op)

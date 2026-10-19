@@ -1,11 +1,11 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
-import { quranStreak, weekStats } from '../lib/stats'
+import { weekStats } from '../lib/stats'
 import { fmtDay, weekStart } from '../lib/time'
-import { finishFrenchUnit, logFrench, quranTap, setFrenchUnit, type QuranMode } from '../lib/actions'
-import { FRENCH_ACTIVITIES, FRENCH_MINUTES, GOALS } from '../data/program'
-import { Bar, Label, Stepper } from '../components/ui'
-import { JuzGrid, dueJuz } from '../components/Quran'
+import { finishFrenchUnit, logFrench, setFrenchUnit } from '../lib/actions'
+import { FRENCH_ACTIVITIES, FRENCH_MINUTES } from '../data/program'
+import { Label, Stepper } from '../components/ui'
+import { QuranBrowser, surahStatus } from '../components/Quran'
 
 export function Learn() {
   return (
@@ -13,6 +13,7 @@ export function Learn() {
       <div className="hero-light" />
       <header className="page-head">
         <h1 className="hero-word" style={{ fontSize: 34 }}>LEARN</h1>
+        <Label>No targets · every bit counts</Label>
       </header>
       <div className="cols c2">
         <Quran />
@@ -23,41 +24,29 @@ export function Learn() {
 }
 
 function Quran() {
-  const data = useStore()
-  const [mode, setMode] = useState<QuranMode>('revise')
-  const w = useMemo(() => weekStats(data, weekStart()), [data])
-  const streak = useMemo(() => quranStreak(data.logs), [data.logs])
-  const due = dueJuz(data.juz)
-  const memorized = Object.values(data.juz).filter((j) => j.memorized).length
+  const events = useStore((s) => s.quran)
+  const counts = useMemo(() => {
+    let learned = 0, memorized = 0
+    for (let n = 1; n <= 114; n++) {
+      const st = surahStatus(events, n)
+      if (st.memorized) memorized++
+      else if (st.learned) learned++
+    }
+    return { learned, memorized }
+  }, [events])
+  const thisWeek = events.filter((e) => e.local_date >= weekStart()).length
   return (
     <section className="panel stack" style={{ gap: 16 }}>
       <div className="row between">
         <div className="title">Quran</div>
-        <span className="label">{memorized}/30 memorized</span>
+        <span className="ar strong" style={{ fontSize: 20 }}>القرآن</span>
       </div>
       <div className="grid3">
-        <Stat v={`${w.quranDays}/7`} k="Days this week" />
-        <Stat v={w.juzRevised} k="Juz revised" />
-        <Stat v={streak} k="Day streak" />
+        <Stat v={counts.memorized} k="Memorized" />
+        <Stat v={counts.learned} k="Learned" />
+        <Stat v={thisWeek} k="This week" />
       </div>
-      <Bar value={w.quranDays} max={GOALS.quranDays} />
-      {due.length > 0 && (
-        <div className="stack">
-          <Label>Revise next due</Label>
-          <div className="grid3">
-            {due.map((n) => <button key={n} className="btn btn-outline" onClick={() => quranTap(n, 'revise')}>Juz {n}</button>)}
-          </div>
-        </div>
-      )}
-      <div className="row" style={{ gap: 8 }}>
-        {([['revise', 'Revise'], ['memorize', 'Memorized new'], ['clear', 'Clear']] as [QuranMode, string][]).map(([k, l]) => (
-          <button key={k} className={`chip${mode === k ? (k === 'clear' ? ' warn' : ' on') : ''}`} onClick={() => setMode(k)}>{l}</button>
-        ))}
-      </div>
-      <JuzGrid juz={data.juz} mode={mode} />
-      <div className="row wrap" style={{ gap: 12 }}>
-        <Legend cls="fresh" t="≤ 7 days" /><Legend cls="mid" t="8–14" /><Legend cls="old" t="> 14 / due" /><Legend cls="none" t="not memorized" />
-      </div>
+      <QuranBrowser />
     </section>
   )
 }
@@ -87,12 +76,8 @@ function French() {
       </div>
       <div className="grid3">
         <Stat v={w.frenchMin} k="Min this week" />
-        <Stat v={`${w.frenchDays}/${GOALS.frenchDays}`} k="Days studied" />
+        <Stat v={w.frenchDays} k="Days" />
         <Stat v={units.length} k="Units done" />
-      </div>
-      <div className="stack" style={{ gap: 5 }}>
-        <div className="row between"><Label>Target ≥ {GOALS.frenchMinutes} min/week</Label><span className="mono small strong">{w.frenchMin}/{GOALS.frenchMinutes}</span></div>
-        <Bar value={w.frenchMin} max={GOALS.frenchMinutes} />
       </div>
       {units.length > 0 && (
         <div className="stack">
@@ -108,7 +93,7 @@ function French() {
   )
 }
 
-function Stat({ v, k }: { v: React.ReactNode; k: string }) {
+export function Stat({ v, k }: { v: React.ReactNode; k: string }) {
   return (
     <div className="stack" style={{ gap: 4 }}>
       <div className="big-num" style={{ fontSize: 18, whiteSpace: 'nowrap' }}>{v}</div>
@@ -116,14 +101,3 @@ function Stat({ v, k }: { v: React.ReactNode; k: string }) {
     </div>
   )
 }
-
-function Legend({ cls, t }: { cls: string; t: string }) {
-  return (
-    <span className="row" style={{ gap: 6 }}>
-      <span className={`juz ${cls}`} style={{ width: 14, height: 14, minHeight: 0, borderRadius: 4, aspectRatio: 'auto' }} />
-      <span className="label" style={{ fontSize: 9 }}>{t}</span>
-    </span>
-  )
-}
-
-export { Stat }

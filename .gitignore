@@ -8,3 +8,6 @@ dist
 
 # Private build spec (kept local, not published)
 docs/SPEC.md
+
+# Personal Claude Code settings
+.claude/settings.local.json

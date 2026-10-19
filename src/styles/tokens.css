@@ -44,8 +44,6 @@
   /* Tab bar sits low, just above the home indicator (14px of the 34px inset on iPhone 15). */
   --tabbar-h: 49px;
   --tabbar-pad: max(8px, calc(env(safe-area-inset-bottom, 0px) - 20px));
-  /* Set by main.tsx if an installed iOS app reports a viewport shorter than the screen. */
-  --vp-gap: 0px;
 
   --red: #ff453a;
   --red-glow: rgba(255, 69, 58, 0.55);

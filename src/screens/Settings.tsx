@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
-import { patchSettings, patchSkill, setPin } from '../lib/actions'
+import { patchSettings, setPin } from '../lib/actions'
 import { toast } from '../lib/toast'
 import { Label, Toggle } from '../components/ui'
 import { download } from './Review'
@@ -83,28 +83,13 @@ export function Settings() {
         </div>
       </section>
 
-      <section className="panel stack" style={{ gap: 12 }}>
-        <Label>Thenx skills</Label>
-        {Object.entries(app.skills).map(([k, s]) => (
-          <SkillRow key={k} k={k} s={s} />
-        ))}
-      </section>
-
       <section className="panel stack" style={{ gap: 14 }}>
-        <Label>Learn & units</Label>
+        <Label>Learn</Label>
         <div className="row between">
           <span>French level</span>
           <div className="row" style={{ gap: 6 }}>
             {['A1', 'A2', 'B1', 'B2'].map((l) => (
               <button key={l} className={`chip${(st.french_level ?? 'A1') === l ? ' on' : ''}`} onClick={() => patchSettings({ french_level: l })}>{l}</button>
-            ))}
-          </div>
-        </div>
-        <div className="row between">
-          <span>Weight units (display)</span>
-          <div className="row" style={{ gap: 6 }}>
-            {(['kg', 'lb'] as const).map((u) => (
-              <button key={u} className={`chip${(st.units ?? 'kg') === u ? ' on' : ''}`} onClick={() => patchSettings({ units: u })}>{u}</button>
             ))}
           </div>
         </div>
@@ -118,7 +103,7 @@ export function Settings() {
 
       <section className="panel stack" style={{ gap: 8 }}>
         <Label>About</Label>
-        <p className="small">Ahmed OS · v0.1 · America/Toronto · weeks run Saturday → Friday.</p>
+        <p className="small">Ahmed OS · v0.2 · weights in lb · America/Toronto · weeks run Saturday → Friday.</p>
         <p className="small muted">Not medical advice. See a physio for pain.</p>
         <Diagnostics />
       </section>
@@ -126,26 +111,6 @@ export function Settings() {
   )
 }
 
-function SkillRow({ k, s }: { k: string; s: { name: string; level: number; level_name: string; pct: number; active: boolean } }) {
-  const [name, setName] = useState(s.level_name)
-  return (
-    <div className="stack" style={{ gap: 8, paddingBottom: 10, borderBottom: '1px solid var(--divider)' }}>
-      <div className="row between">
-        <span className="strong">{s.name}</span>
-        <div className="row" style={{ gap: 10 }}>
-          <button className="chip sm" onClick={() => patchSkill(k, { level: Math.max(1, s.level - 1) })}>−</button>
-          <span className="mono small">LVL {s.level}</span>
-          <button className="chip sm" onClick={() => patchSkill(k, { level: s.level + 1 })}>+</button>
-          <Toggle label={`${s.name} active`} on={s.active} onChange={(v) => patchSkill(k, { active: v })} />
-        </div>
-      </div>
-      <div className="row" style={{ gap: 8 }}>
-        <input className="field grow" style={{ minHeight: 40, padding: '8px 12px' }} value={name} onChange={(e) => setName(e.target.value)} placeholder="Level name" />
-        <button className="btn" disabled={name === s.level_name || !name.trim()} onClick={() => { patchSkill(k, { level_name: name.trim() }); toast('Saved') }}>Save</button>
-      </div>
-    </div>
-  )
-}
 
 /** Screen facts for layout debugging (send a screenshot of this). */
 function Diagnostics() {

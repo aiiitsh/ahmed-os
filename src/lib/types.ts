@@ -46,7 +46,6 @@ export interface SwimPlan {
 export interface Settings {
   show_streak_in_review?: boolean
   french_level?: string
-  units?: 'kg' | 'lb'
   swim?: SwimPlan
   /** Streak counts clean days from here when there are no earlier entries. */
   streak_start?: string
@@ -68,7 +67,7 @@ export interface AppState {
 export interface Target {
   user_id: string
   exercise_key: string
-  weight_kg: number | null
+  weight_lb: number | null
   reps: number
   last_feel: Feel | null
   times_done: number
@@ -98,10 +97,10 @@ export interface WorkoutSet {
   name_used: string
   sets: number | null
   reps: number | null
-  weight_kg: number | null
+  weight_lb: number | null
   feel: Feel | null
   skipped: boolean
-  next_weight_kg: number | null
+  next_weight_lb: number | null
   next_reps: number | null
 }
 
@@ -143,6 +142,17 @@ export interface Log {
   local_date: string
   type: LogType
   data: Record<string, any>
+}
+
+/** Quran: one row per event so the whole history is kept. */
+export interface QuranEvent {
+  id: string
+  user_id: string
+  surah: number
+  kind: 'learned' | 'memorized' | 'revised'
+  at: string
+  local_date: string
+  note: string | null
 }
 
 export interface HabitEntry {
