@@ -1,3 +1,4 @@
+import { fmtDur } from './time'
 import { CARDIO, STRETCH_LABEL, type Sport } from '../data/program'
 import type { Log } from './types'
 
@@ -9,6 +10,9 @@ export function describeLog(l: Log): { icon: string; text: string } {
     case 'cardio': {
       if (d.sport === 'swim' && d.intensity) {
         return { icon: 'swim', text: `Swim · ${d.minutes} min · ${d.intensity}${d.rest_s != null ? ` · rest ${d.rest_s} s` : ''}` }
+      }
+      if (d.sport === 'hike') {
+        return { icon: 'hike', text: `Hike · ${d.km} km${d.minutes ? ` · ${fmtDur(Number(d.minutes))}` : ''}` }
       }
       const c = CARDIO[d.sport as Sport]
       const v = c?.variants.find((x) => x[0] === d.variant)?.[1] ?? cap(d.variant)
