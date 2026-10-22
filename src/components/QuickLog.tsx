@@ -9,7 +9,7 @@ import type { SwimDone } from '../lib/progression'
 import { useStore } from '../lib/store'
 import { fmtDur, localDate } from '../lib/time'
 
-export type SheetKey = 'swim' | 'run' | 'squash' | 'hike' | 'routine' | 'quran' | 'french' | 'focus'
+export type SheetKey = 'cardio' | 'swim' | 'run' | 'squash' | 'hike' | 'routine' | 'quran' | 'french' | 'focus'
 
 export const useSheet = create<{ open: SheetKey | null }>(() => ({ open: null }))
 export const openSheet = (k: SheetKey) => useSheet.setState({ open: k })
@@ -170,8 +170,21 @@ function FocusSheet() {
   )
 }
 
+function CardioPicker() {
+  const opts: [SheetKey, string, string][] = [['swim', 'Swim', 'swim'], ['hike', 'Hike', 'hike'], ['run', 'Run', 'run'], ['squash', 'Squash', 'squash']]
+  return (
+    <div className="grid2">
+      {opts.map(([k, label, icon]) => (
+        <button key={k} className="btn btn-big" style={{ minHeight: 84, flexDirection: 'column', gap: 6 }} onClick={() => openSheet(k)}>
+          <Icon name={icon} size={26} /> {label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
 const TITLES: Record<SheetKey, string> = {
-  swim: 'Log swim', run: 'Run', squash: 'Squash', hike: 'Log hike', routine: 'Core & posture routine', quran: 'Quran', french: 'French', focus: 'Focus',
+  cardio: 'What did you do?', swim: 'Log swim', run: 'Run', squash: 'Squash', hike: 'Log hike', routine: 'Core & posture routine', quran: 'Quran', french: 'French', focus: 'Focus',
 }
 
 export function QuickSheets() {
@@ -181,6 +194,7 @@ export function QuickSheets() {
       {open === 'swim' && <SwimSheet />}
       {(open === 'run' || open === 'squash') && <CardioSheet key={open} sport={open} />}
       {open === 'hike' && <HikeSheet />}
+      {open === 'cardio' && <CardioPicker />}
       {open === 'routine' && <RoutineSheet />}
       {open === 'quran' && <QuranSheet />}
       {open === 'french' && <FrenchSheet />}

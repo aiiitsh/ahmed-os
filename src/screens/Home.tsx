@@ -120,24 +120,26 @@ function TrainCard() {
   const plan = useMemo(() => trainingPlan(data), [data])
   const d = DAYS[plan.day]
   const first = EX[d.keys.find((k) => EX[k].kind !== 'skill') ?? d.keys[0]]
-  const label = plan.state === 'done' ? 'Trained today' : plan.state === 'rest' ? 'Recovery day suggested' : 'Train today'
+  const label = plan.state === 'done' ? 'Trained today' : plan.state === 'rest' ? 'Recovery' : 'Train today'
   return (
     <section className="panel deep stack" style={{ gap: 14 }}>
       <div className="row between">
         <Label>{label}</Label>
-        <span className="pill">DAY {plan.state === 'done' ? plan.doneDay : plan.day}</span>
+        {plan.state !== 'rest' && <span className="pill">DAY {plan.state === 'done' ? plan.doneDay : plan.day}</span>}
       </div>
       <div className="row" style={{ gap: 14 }}>
-        <Icon name={plan.state === 'done' ? 'check' : first.icon} size={40} strokeWidth={1.3} />
+        <Icon name={plan.state === 'done' ? 'check' : plan.state === 'rest' ? 'bed' : first.icon} size={40} strokeWidth={1.3} />
         <div className="stack grow" style={{ gap: 4 }}>
-          <div className="title" style={{ fontSize: 18 }}>{plan.state === 'done' ? `Day ${plan.doneDay} done` : d.name}</div>
+          <div className="title" style={{ fontSize: plan.state === 'rest' ? 24 : 18 }}>{plan.state === 'done' ? `Day ${plan.doneDay} done` : plan.state === 'rest' ? 'REST DAY' : d.name}</div>
           <div className="muted small">{plan.state === 'done' ? d.sub : plan.why}</div>
+          {plan.state !== 'done' && plan.note && <span className="chip on sm" style={{ alignSelf: 'flex-start', marginTop: 4 }}>core & posture only</span>}
         </div>
       </div>
-      {plan.state !== 'done' && (
-        <button className={`btn btn-big btn-caps${plan.state === 'go' ? ' btn-outline pulse' : ''}`} onClick={() => startSession(plan.day)}>
-          {plan.state === 'rest' ? `Train anyway · Day ${plan.day}` : 'Start'}
-        </button>
+      {plan.state === 'go' && (
+        <button className="btn btn-big btn-caps btn-outline pulse" onClick={() => startSession(plan.day, plan.skip, plan.note)}>Start</button>
+      )}
+      {plan.state === 'rest' && (
+        <button className="link" style={{ alignSelf: 'center' }} onClick={() => startSession(plan.day, plan.skip, plan.note)}>Train anyway (Day {plan.day})</button>
       )}
     </section>
   )

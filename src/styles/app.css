@@ -270,3 +270,10 @@ input[type=date].field { color-scheme: dark; }
 .ar { font-family: 'Amiri', 'Geeza Pro', 'Noto Naskh Arabic', 'Segoe UI', serif; direction: rtl; letter-spacing: 0; text-transform: none; }
 .hero-ar { font-size: 44px; line-height: 1.3; color: #fff; text-shadow: var(--glow-text-soft); }
 .chip .ar { font-size: 15px; }
+
+/* set progress dots in the session runner */
+.set-dots { display: flex; gap: 8px; }
+.set-dots i { width: 22px; height: 6px; border-radius: 3px; background: var(--track); }
+.set-dots i.done { background: #fff; box-shadow: 0 0 6px #fff; }
+.set-dots i.cur { background: #6a6a70; }
+.rest-panel { border-color: #fff; }

@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { supabase } from './supabase'
 import { pendingCount, write, onPending, type Op } from './queue'
 import { addDays, localDate } from './time'
-import { EXERCISES, seedTarget } from '../data/program'
+import { EX, TRACKED, seedTarget } from '../data/program'
 import { kgToLb } from './format'
 import type {
   AppState, FocusBlock, HabitEntry, Log, QuranEvent, Target, WeeklyReview, Workout, WorkoutSet,
@@ -60,13 +60,13 @@ export async function seedIfNeeded(userId: string) {
   if (existing.length) return
   await q(supabase.from('app_state').upsert({ user_id: userId, rotation_next: 'C', skills: {}, french_unit: 1, settings: { french_level: 'A1' } }))
   await q(supabase.from('exercise_targets').upsert(
-    EXERCISES.map((e) => ({ user_id: userId, exercise_key: e.key, ...seedTarget(e), calibrated: false, times_done: 0 })),
+    TRACKED().map((e) => ({ user_id: userId, exercise_key: e.key, ...seedTarget(e), calibrated: false, times_done: 0 })),
   ))
 }
 
 /** Make sure every program exercise has a target row (e.g. after the program config grows). */
 function fillTargets(userId: string, targets: Record<string, Target>) {
-  const missing = EXERCISES.filter((e) => !targets[e.key])
+  const missing = TRACKED().filter((e) => !targets[e.key])
   if (!missing.length) return targets
   const rows = missing.map((e) => ({ user_id: userId, exercise_key: e.key, ...seedTarget(e), last_feel: null, times_done: 0, calibrated: false }))
   void write({ kind: 'upsert', table: 'exercise_targets', values: rows })
@@ -100,7 +100,9 @@ export async function load(force = false) {
     const num = (v: any) => (v == null ? null : Number(v))
     // Rows saved before migration 003 still carry kilograms.
     const lb = (row: any, lbKey: string, kgKey: string) => (row[lbKey] !== undefined ? num(row[lbKey]) : row[kgKey] != null ? kgToLb(Number(row[kgKey])) : null)
-    const tMap = Object.fromEntries(targets.map((t) => [t.exercise_key, { ...t, weight_lb: lb(t, 'weight_lb', 'weight_kg') }]))
+    // A move that became weighted (e.g. 45° back extension) starts at its default weight.
+    const startW = (t: any, w: number | null) => (w == null && EX[t.exercise_key]?.kind === 'weighted' ? EX[t.exercise_key].start : w)
+    const tMap = Object.fromEntries(targets.map((t) => [t.exercise_key, { ...t, weight_lb: startW(t, lb(t, 'weight_lb', 'weight_kg')) }]))
     set({
       appState: app[0] ?? null,
       targets: fillTargets(userId, tMap),

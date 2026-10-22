@@ -25,6 +25,8 @@ export interface StepState {
   skipped?: boolean
   done?: boolean
   minutes?: number
+  /** sets finished so far (set-by-set flow) */
+  setsDone?: number
 }
 
 export interface ActiveSession {
@@ -34,6 +36,12 @@ export interface ActiveSession {
   step_started_at: string
   steps: StepState[]
   finished?: boolean
+  /** rest countdown in progress */
+  rest_until?: string | null
+  rest_total?: number
+  rest_label?: string
+  /** why some steps were left out (e.g. legs skipped after a big hike) */
+  note?: string
 }
 
 export interface SwimPlan {

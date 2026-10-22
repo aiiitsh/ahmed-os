@@ -1,6 +1,7 @@
 import { EX, GOALS, GROUPS } from '../data/program'
 import type { Data } from './store'
 import type { Group, HabitEntry, Log, Workout, WorkoutSet, FocusBlock } from './types'
+import { cardioCredit } from './activity'
 import { addDays, daysBetween, dow, inWeek, localDate, minutesBetween, weekDays } from './time'
 
 // ---------- muscle credit ----------
@@ -113,7 +114,12 @@ export function weekStats(data: Data, start: string) {
   const focus = wk(data.focus, (f) => f.local_date)
   const byType = (t: string) => logs.filter((l) => l.type === t)
 
-  const groups = groupSets(workouts, sets)
+  // Gym sets plus what swims, hikes, runs and squash worked.
+  const gymGroups = groupSets(workouts, sets)
+  const groups = { ...gymGroups }
+  const cardioGroups = Object.fromEntries(GROUPS.map((g) => [g.key, 0])) as Record<Group, number>
+  for (const l of byType('cardio')) for (const [g, n] of Object.entries(cardioCredit(l))) cardioGroups[g as Group] += n!
+  for (const g of GROUPS) groups[g.key] = Math.round((groups[g.key] + cardioGroups[g.key]) * 10) / 10
   const feelSets = sets.filter((s) => s.feel && !s.skipped)
   const hard = feelSets.filter((s) => s.feel === 'hard').length
   const quran = data.quran.filter((e) => inWeek(e.local_date, start))
@@ -135,7 +141,7 @@ export function weekStats(data: Data, start: string) {
 
   return {
     start, end: days[6], days,
-    workouts, sets, byDayCode, groups,
+    workouts, sets, byDayCode, groups, gymGroups, cardioGroups,
     cardio: byType('cardio'),
     stretches: byType('stretch'),
     hipFlexor: byType('stretch').filter((l) => l.data.which === 'hip_flexors' || l.data.which === 'daily_routine').length,

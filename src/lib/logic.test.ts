@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 import { progress, nextSwim } from './progression'
 import { addDays, localDate, weekStart, dow } from './time'
 import { habitStats, groupSets } from './stats'
-import { trainingPlan, swimPlanFrom } from './plan'
+import { trainingPlan, swimPlanFrom, dayPlan, tomorrowPreview } from './plan'
+import { cardioCredit } from './activity'
+import { restAfterSet, restBetween } from './rest'
 import { kgToLb } from './format'
 import type { Data } from './store'
 import { EX } from '../data/program'
@@ -123,7 +125,8 @@ describe('dynamic plan', () => {
     const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')], logs: [log('2026-10-18', { sport: 'hike', km: 21, minutes: 330 })] }
     const p = trainingPlan(data, '2026-10-19')
     expect(p.day).toBe('B')
-    expect(p.why).toMatch(/Day C waits/)
+    expect(p.state).toBe('rest') // a 21 km hike yesterday means rest
+    expect(p.why).toMatch(/rest today/)
   })
   it('suggests recovery after two training days in a row', () => {
     const data = { ...base(), workouts: [wo('2026-10-17', 'A'), wo('2026-10-18', 'B')] }
@@ -145,5 +148,63 @@ describe('pounds', () => {
     expect(kgToLb(5)).toBe(10) // 11 lb → nearest 2.5
     expect(kgToLb(16)).toBe(35)
     expect(kgToLb(6)).toBe(12.5)
+  })
+})
+
+describe('activity-aware plan', () => {
+  const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
+  const wo = (d: string, code: 'A' | 'B' | 'C') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
+  const log = (d: string, data: any) => ({ id: d + data.sport, user_id: 'u', logged_at: `${d}T15:00:00Z`, local_date: d, type: 'cardio' as const, data })
+
+  it('squash yesterday: no "go swim", cardio optional, legs rest', () => {
+    const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')], logs: [log('2026-10-20', { sport: 'squash', variant: 'match', minutes: 60 })] }
+    const cardio = dayPlan(data, '2026-10-21').find((i) => i.key === 'cardio')!
+    expect(cardio.optional).toBe(true)
+    expect(cardio.why).toMatch(/Squash yesterday/)
+    expect(trainingPlan(data, '2026-10-21').day).not.toBe('C')
+  })
+  it('any cardio today marks cardio done', () => {
+    const data = { ...base(), logs: [log('2026-10-21', { sport: 'squash', variant: 'match', minutes: 45 })] }
+    expect(dayPlan(data, '2026-10-21').find((i) => i.key === 'cardio')!.done).toBe(true)
+  })
+  it('a 21 km hike this week trims Day C to core & posture', () => {
+    const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')], logs: [log('2026-10-17', { sport: 'hike', km: 21 })] }
+    const p = trainingPlan(data, '2026-10-21')
+    expect(p.day).toBe('C')
+    expect(p.skip).toEqual(['leg_curl', 'hip_thrust_machine', 'back_ext_45'])
+  })
+  it('hikes count toward glutes + hams', () => {
+    expect(cardioCredit({ id: 'x', user_id: 'u', logged_at: '', local_date: '', type: 'cardio', data: { sport: 'hike', km: 21 } }).posterior).toBe(5)
+  })
+})
+
+describe('rest times', () => {
+  it('base rest, longer after a Hard session, shorter after Easy', () => {
+    expect(restAfterSet(EX.db_curl, null, 10)).toBe(75)
+    expect(restAfterSet(EX.db_curl, 'hard', 10)).toBe(105)
+    expect(restAfterSet(EX.db_curl, 'easy', 10)).toBe(60)
+    expect(restAfterSet(EX.dead_bug, null, 60)).toBe(60) // late in a long session: +15
+    expect(restBetween(EX.skill_muscleup, null)).toBe(120)
+    expect(restBetween(EX.warmup_A, null)).toBe(0)
+  })
+})
+
+describe('rest days', () => {
+  const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
+  const wo = (d: string, code: 'A' | 'B' | 'C') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
+  const log = (d: string, data: any) => ({ id: d + data.sport, user_id: 'u', logged_at: `${d}T15:00:00Z`, local_date: d, type: 'cardio' as const, data })
+  it('says rest the day after a 21 km hike', () => {
+    const data = { ...base(), logs: [log('2026-10-18', { sport: 'hike', km: 21 })] }
+    expect(trainingPlan(data, '2026-10-19').state).toBe('rest')
+    expect(tomorrowPreview(data, '2026-10-18')[0]).toMatch(/REST DAY/)
+  })
+  it('says rest after 5 active days out of 6', () => {
+    const data = { ...base(), workouts: ['2026-10-14', '2026-10-15', '2026-10-17', '2026-10-19'].map((d, i) => wo(d, (['A', 'B', 'C', 'A'] as const)[i])),
+      logs: [log('2026-10-16', { sport: 'squash', minutes: 60 })] }
+    expect(trainingPlan(data, '2026-10-20').state).toBe('rest')
+  })
+  it('a normal week does not force rest', () => {
+    const data = { ...base(), workouts: [wo('2026-10-15', 'A'), wo('2026-10-17', 'B')] }
+    expect(trainingPlan(data, '2026-10-19').state).toBe('go')
   })
 })

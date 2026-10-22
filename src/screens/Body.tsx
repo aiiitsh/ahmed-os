@@ -2,10 +2,10 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { weekStats, fmt1 } from '../lib/stats'
 import { fmtDay, fmtDur, minutesBetween, weekStart } from '../lib/time'
-import { adjustTarget, deleteWorkout, logRoutine, routineToday, startSession, swimPlan } from '../lib/actions'
+import { adjustTarget, deleteWorkout, editSet, logRoutine, routineToday, startSession, swimPlan } from '../lib/actions'
 import { fmtW } from '../lib/format'
 import { DAILY_ROUTINE, DAYS, EX, EXERCISES, GROUPS, isSecs, repStep, type Exercise } from '../data/program'
-import type { DayCode } from '../lib/types'
+import type { DayCode, WorkoutSet } from '../lib/types'
 import { Bar, DeleteX, Label, Sparkline, Stepper } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { BodyMap } from '../components/BodyMap'
@@ -35,7 +35,7 @@ export function Body() {
       <div className="cols c2">
         <section className="panel"><BodyMap groups={w.groups} /></section>
         <section className="panel">
-          <div className="panel-head"><Label>Sets by muscle · target</Label></div>
+          <div className="panel-head"><Label>Sets by muscle · target</Label><span className="label">incl. cardio</span></div>
           <div className="stack" style={{ gap: 12 }}>
             {GROUPS.map((g) => {
               const v = w.groups[g.key]
@@ -43,7 +43,10 @@ export function Body() {
                 <div key={g.key} className="stack" style={{ gap: 5 }}>
                   <div className="row between">
                     <span className="small">{g.label}</span>
-                    {v === 0 ? <span className="chip warn sm">0/{g.hi}</span> : <span className="mono small strong">{fmt1(v)}/{g.hi}</span>}
+                    <span className="row" style={{ gap: 8 }}>
+                      {w.cardioGroups[g.key] > 0 && <span className="mono dim" style={{ fontSize: 10 }}>+{fmt1(w.cardioGroups[g.key])} CARDIO</span>}
+                      {v === 0 ? <span className="chip warn sm">0/{g.hi}</span> : <span className="mono small strong">{fmt1(v)}/{g.hi}</span>}
+                    </span>
                   </div>
                   <Bar value={v} max={g.hi} />
                 </div>
@@ -71,6 +74,7 @@ export function Body() {
 /** "3×12 · 10 KG", "3×30S", "3×30S · 16 KG" */
 function targetText(e: Exercise, w: number | null | undefined, r: number | undefined) {
   if (e.kind === 'skill') return 'THENX'
+  if (e.kind === 'prep') return '~6 MIN'
   if (e.kind === 'stretch') return `${e.sets}×${e.lo}S`
   const reps = `${e.sets}×${r ?? e.lo}${isSecs(e) ? 'S' : ''}`
   return e.kind === 'weighted' ? `${reps} · ${fmtW(w ?? e.start)}` : reps
@@ -78,10 +82,12 @@ function targetText(e: Exercise, w: number | null | undefined, r: number | undef
 
 function NextPreview() {
   const data = useStore()
-  const next = useMemo(() => trainingPlan(data).day, [data])
+  const plan = useMemo(() => trainingPlan(data), [data])
+  const next = plan.day
   const targets = useStore((s) => s.targets)
   const [pick, setPick] = useState<DayCode>(next)
   const day = DAYS[pick]
+  const skip = pick === next ? plan.skip : []
   return (
     <section className="panel deep stack" style={{ gap: 14 }}>
       <div className="row between">
@@ -93,21 +99,22 @@ function NextPreview() {
         </div>
       </div>
       <div className="title" style={{ fontSize: 18 }}>Day {pick} · {day.name}</div>
+      {skip.length > 0 && plan.note && <span className="chip on sm" style={{ alignSelf: 'flex-start' }}>{plan.note}</span>}
       <div className="list">
         {day.keys.map((k) => {
           const e = EX[k]
           const t = targets[k]
           const tgt = targetText(e, t?.weight_lb, t?.reps)
           return (
-            <div key={k} className="li">
+            <div key={k} className="li" style={{ opacity: skip.includes(k) ? 0.35 : 1 }}>
               <Icon name={e.icon} size={22} />
-              <span className="grow">{e.short}</span>
-              <span className="mono small muted">{tgt}</span>
+              <span className="grow" style={{ textDecoration: skip.includes(k) ? 'line-through' : undefined }}>{e.short}</span>
+              <span className="mono small muted">{skip.includes(k) ? 'SKIP' : tgt}</span>
             </div>
           )
         })}
       </div>
-      <button className="btn btn-outline btn-big btn-caps pulse" onClick={() => startSession(pick)}>Start</button>
+      <button className="btn btn-outline btn-big btn-caps pulse" onClick={() => startSession(pick, skip, skip.length ? plan.note : undefined)}>Start</button>
     </section>
   )
 }
@@ -180,7 +187,7 @@ function Targets() {
     <section className="panel">
       <div className="panel-head"><Label>Targets</Label><span className="label">tap to adjust</span></div>
       <div className="list">
-        {EXERCISES.filter((e) => e.kind !== 'skill' && e.kind !== 'stretch').map((e) => {
+        {EXERCISES.filter((e) => e.kind !== 'skill' && e.kind !== 'stretch' && e.kind !== 'prep').map((e) => {
           const t = targets[e.key]
           if (!t) return null
           const f = firstThisWeek(e.key)
@@ -246,28 +253,67 @@ function Routine() {
   )
 }
 
-/** Past workouts, with delete (for duplicates or sessions left open by mistake). */
+/** Past workouts: tap one to fix weights/reps you actually did, or delete it. */
 function History() {
   const workouts = useStore((st) => st.workouts)
+  const allSets = useStore((st) => st.sets)
+  const [open, setOpen] = useState<string | null>(null)
   const list = [...workouts].sort((a, b) => b.started_at.localeCompare(a.started_at)).slice(0, 20)
   return (
     <section className="panel">
-      <div className="panel-head"><Label>Workout history</Label><span className="label">tap × to delete</span></div>
+      <div className="panel-head"><Label>Workout history</Label><span className="label">tap to edit</span></div>
       {list.length === 0 ? <div className="empty">No workouts yet.</div> : (
         <div className="list">
           {list.map((w) => {
             const mins = w.ended_at ? Math.round(minutesBetween(w.started_at, w.ended_at)) : null
+            const sets = allSets.filter((x) => x.workout_id === w.id && EX[x.exercise_key] && EX[x.exercise_key].kind !== 'prep')
+              .sort((a, b) => a.position - b.position)
             return (
-              <div key={w.id} className="li">
-                <span className="mono small" style={{ width: 92 }}>{fmtDay(w.local_date)}</span>
-                <span className="grow small">Day {w.day_code} · {DAYS[w.day_code].name}</span>
-                <span className={`mono small${mins != null && mins > 180 ? ' red-text' : ' muted'}`}>{mins != null ? fmtDur(mins) : '—'}</span>
-                <DeleteX onDelete={() => deleteWorkout(w.id)} />
+              <div key={w.id} className="stack" style={{ gap: 0 }}>
+                <div className="li">
+                  <button className="row grow" style={{ textAlign: 'left', gap: 10 }} onClick={() => setOpen(open === w.id ? null : w.id)}>
+                    <span className="mono small" style={{ width: 92 }}>{fmtDay(w.local_date)}</span>
+                    <span className="grow small">Day {w.day_code} · {DAYS[w.day_code].name}</span>
+                    <span className={`mono small${mins != null && mins > 180 ? ' red-text' : ' muted'}`}>{mins != null ? fmtDur(mins) : '—'}</span>
+                  </button>
+                  <DeleteX onDelete={() => deleteWorkout(w.id)} />
+                </div>
+                {open === w.id && (
+                  <div className="stack" style={{ gap: 4, padding: '4px 0 12px' }}>
+                    {sets.length === 0 && <div className="empty">No sets saved for this workout.</div>}
+                    {sets.map((x) => <SetEditor key={x.id} set={x} />)}
+                  </div>
+                )}
               </div>
             )
           })}
         </div>
       )}
     </section>
+  )
+}
+
+function SetEditor({ set }: { set: WorkoutSet }) {
+  const e = EX[set.exercise_key]
+  if (e.kind === 'stretch') return <div className="li small muted" style={{ minHeight: 36 }}>{e.short} · {set.skipped ? 'skipped' : 'done'}</div>
+  const canWeigh = e.kind === 'weighted'
+  const w = set.weight_lb
+  return (
+    <div className="stack" style={{ gap: 8, padding: '10px 0', borderBottom: '1px solid var(--divider)' }}>
+      <div className="row between">
+        <span className="small strong">{e.short}</span>
+        <span className="mono small muted">{set.skipped ? 'SKIPPED' : `${set.sets ?? e.sets}×${set.reps ?? '—'}${isSecs(e) ? 'S' : ''}${w != null ? ` · ${fmtW(w)}` : ''}${set.feel ? ` · ${set.feel.toUpperCase()}` : ''}`}</span>
+      </div>
+      {!set.skipped && (
+        <div className="row wrap" style={{ gap: 12, justifyContent: 'center' }}>
+          {canWeigh && (
+            <Stepper value={fmtW(w, false)} sub={`lb · step ${e.step}`} onMinus={() => editSet(set, { weight_lb: Math.max(0, (w ?? 0) - e.step) })}
+              onPlus={() => editSet(set, { weight_lb: (w ?? 0) + e.step })} />
+          )}
+          <Stepper value={set.reps ?? 0} sub={isSecs(e) ? 'seconds' : 'reps'} onMinus={() => editSet(set, { reps: Math.max(1, (set.reps ?? e.lo) - repStep(e)) })}
+            onPlus={() => editSet(set, { reps: (set.reps ?? e.lo) + repStep(e) })} />
+        </div>
+      )}
+    </div>
   )
 }

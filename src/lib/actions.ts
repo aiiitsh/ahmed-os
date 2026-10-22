@@ -4,6 +4,7 @@ import { toast } from './toast'
 import { localDate, minutesBetween, nowIso, fmtDur } from './time'
 import { CARDIO, DAYS, EX, isSecs, nextDay, type Sport } from '../data/program'
 import { nextSwim, progress, type SwimDone } from './progression'
+import { restAfterSet, restBetween, unlockAudio } from './rest'
 import { surahLatin } from '../data/surahs'
 import { swimPlanFrom } from './plan'
 import type { ActiveSession, DayCode, Feel, FocusBlock, HabitEntry, Log, LogType, QuranEvent, StepState, Target, Workout, WorkoutSet } from './types'
@@ -220,17 +221,50 @@ export function adjustTarget(key: string, dw: number, dr: number) {
 
 // ---------- workout session ----------
 
-export function startSession(day: DayCode) {
+/** Start a day's session. `skip` leaves out steps (e.g. leg machines after a big hike), `note` says why. */
+export function startSession(day: DayCode, skip: string[] = [], note?: string) {
   const app = get().appState
   if (!app) return
   if (app.active_session) return
-  const steps: StepState[] = DAYS[day].keys.map((key) => {
+  unlockAudio()
+  const steps: StepState[] = DAYS[day].keys.filter((k) => !skip.includes(k)).map((key) => {
     const t = get().targets[key]
     const e = EX[key]
-    return { key, weight: t?.weight_lb ?? e.start, reps: t?.reps ?? e.lo }
+    return { key, weight: t?.weight_lb ?? e.start, reps: t?.reps ?? e.lo, setsDone: 0 }
   })
   const now = nowIso()
-  patchApp({ active_session: { day, started_at: now, step: 0, step_started_at: now, steps } })
+  patchApp({ active_session: { day, started_at: now, step: 0, step_started_at: now, steps, rest_until: null, note } })
+}
+
+/** One set finished: start the rest countdown before the next set. */
+export function setDone(i: number) {
+  const s = get().appState?.active_session
+  if (!s) return
+  unlockAudio()
+  const prev = s
+  const st = s.steps[i]
+  const e = EX[st.key]
+  const n = (st.setsDone ?? 0) + 1
+  const steps = s.steps.map((x, j) => (j === i ? { ...x, setsDone: n } : x))
+  const now = Date.now()
+  if (n < e.sets) {
+    const r = restAfterSet(e, get().targets[st.key]?.last_feel ?? null, minutesBetween(s.started_at, now))
+    patchApp({ active_session: { ...s, steps, rest_until: new Date(now + r * 1000).toISOString(), rest_total: r, rest_label: `Rest · then set ${n + 1} of ${e.sets}` } })
+  } else {
+    patchApp({ active_session: { ...s, steps, rest_until: null } })
+  }
+  toast(`Set ${n} of ${e.sets} done`, () => patchApp({ active_session: prev }))
+}
+
+export function skipRest() {
+  const s = get().appState?.active_session
+  if (s) patchApp({ active_session: { ...s, rest_until: null } })
+}
+
+export function addRest(sec: number) {
+  const s = get().appState?.active_session
+  if (!s?.rest_until) return
+  patchApp({ active_session: { ...s, rest_until: new Date(new Date(s.rest_until).getTime() + sec * 1000).toISOString(), rest_total: (s.rest_total ?? 0) + sec } })
 }
 
 export function updateStep(i: number, p: Partial<StepState>) {
@@ -246,10 +280,15 @@ export function completeStep(i: number, p: Partial<StepState>) {
   if (!s) return
   const prev = s
   const now = nowIso()
-  const steps = s.steps.map((x, j) => (j === i ? { ...x, ...p } : x))
+  const steps = s.steps.map((x, j) => (j === i ? { ...x, ...p, setsDone: p.done ? EX[x.key].sets : x.setsDone } : x))
   const nextIdx = steps.findIndex((x, j) => j > i && !x.done && !x.skipped)
   const allDone = nextIdx === -1
-  patchApp({ active_session: { ...s, steps, step: allDone ? steps.length : nextIdx, step_started_at: now, finished: allDone } })
+  // Rest before the next exercise (none after a warm-up or a skip).
+  const r = !allDone && p.done ? restBetween(EX[steps[i].key], p.feel) : 0
+  const rest = r > 0
+    ? { rest_until: new Date(Date.now() + r * 1000).toISOString(), rest_total: r, rest_label: `Rest · next: ${EX[steps[nextIdx].key].short}` }
+    : { rest_until: null }
+  patchApp({ active_session: { ...s, steps, step: allDone ? steps.length : nextIdx, step_started_at: now, finished: allDone, ...rest } })
   const name = EX[steps[i].key].short
   toast(p.skipped ? `${name} skipped` : p.feel ? `${name} · ${p.feel.toUpperCase()}` : `${name} done`, () => patchApp({ active_session: prev }))
 }
@@ -276,7 +315,7 @@ export function finishSession(early = false, endAt?: string): FinishSummary | nu
   const app = get().appState
   const s = app?.active_session
   if (!app || !s) return null
-  const anyDone = s.steps.some((x) => x.done)
+  const anyDone = s.steps.some((x) => x.done && EX[x.key].kind !== 'prep')
   if (!anyDone) {
     patchApp({ active_session: null })
     toast('Session discarded')
@@ -304,7 +343,7 @@ export function finishSession(early = false, endAt?: string): FinishSummary | nu
     const t = get().targets[st.key]
     let nextW: number | null = null
     let nextR: number | null = null
-    if (st.done && e.kind !== 'stretch' && st.feel) {
+    if (st.done && e.kind !== 'stretch' && e.kind !== 'prep' && st.feel) {
       const res = progress(e, { weight: st.weight ?? null, reps: st.reps ?? e.lo, targetReps: t?.reps ?? e.lo, feel: st.feel, prevFeel: t?.last_feel ?? null })
       nextW = res.weight
       nextR = res.reps
@@ -324,7 +363,8 @@ export function finishSession(early = false, endAt?: string): FinishSummary | nu
     sets.push({
       id: newId(), workout_id: workout.id, user_id: app.user_id, position, exercise_key: st.key,
       name_used: st.swapped && e.swap ? e.swap : e.name,
-      sets: e.sets || null, reps: e.kind === 'stretch' ? e.lo : st.reps ?? null, weight_lb: st.weight ?? null,
+      sets: e.kind === 'prep' ? null : (st.setsDone || e.sets || null), reps: e.kind === 'prep' ? null : e.kind === 'stretch' ? e.lo : st.reps ?? null,
+      weight_lb: e.kind === 'prep' ? null : st.weight ?? null,
       feel: st.feel ?? null, skipped: !!st.skipped, next_weight_lb: nextW, next_reps: nextR,
     })
   })
@@ -346,6 +386,19 @@ export function autoCloseStaleSession(maxIdleMin = 180) {
   if (minutesBetween(s.step_started_at, Date.now()) < maxIdleMin) return
   const res = finishSession(true, s.step_started_at)
   toast(res ? `Saved your unfinished Day ${s.day} from earlier` : 'Closed an empty workout from earlier')
+}
+
+/** Fix a past set (e.g. the weight you actually used). Updates the current target if it's your latest. */
+export function editSet(set: WorkoutSet, patch: Partial<Pick<WorkoutSet, 'weight_lb' | 'reps'>>) {
+  const next = { ...set, ...patch }
+  putRows('sets', [next])
+  const started = (id: string) => get().workouts.find((w) => w.id === id)?.started_at ?? ''
+  const latest = get().sets.filter((x) => x.exercise_key === set.exercise_key && !x.skipped)
+    .sort((a, b) => started(a.workout_id).localeCompare(started(b.workout_id))).at(-1)
+  const t = get().targets[set.exercise_key]
+  const prevT = t
+  if (t && latest?.id === set.id && patch.weight_lb !== undefined) putTarget({ ...t, weight_lb: patch.weight_lb })
+  toast('Workout updated', () => { putRows('sets', [set]); if (prevT) putTarget(prevT) })
 }
 
 export function discardSession() {
