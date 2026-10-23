@@ -90,6 +90,7 @@ export function generateWeekPlan(data: Data, ws: string): WeekPlan {
   why.push('Saturday is your free cardio day (run, hike or squash: change it if you know). Day C never comes right after it, so legs are fresh.')
   if (topSwim.n > 0) why.push(`Swim on ${WEEKDAYS[days.findIndex((s) => s.kind === 'swim')]}: that's when you usually swim.`)
   why.push('Posture every day: inside the warm-up and cool-down on gym days, an 8-min gentle reset on the other days.')
+  why.push('APT fix without growing glutes: hamstrings, lower abs and hip flexor stretches. Glutes get activation only (bodyweight bridges), never weight.')
   return { week_start: ws, created_at: new Date().toISOString(), days, why }
 }
 

@@ -230,7 +230,7 @@ export function startSession(day: DayCode, skip: string[] = [], note?: string) {
   const steps: StepState[] = DAYS[day].keys.filter((k) => !skip.includes(k)).map((key) => {
     const t = get().targets[key]
     const e = EX[key]
-    return { key, weight: t?.weight_lb ?? e.start, reps: t?.reps ?? e.lo, setsDone: 0 }
+    return { key, weight: e.kind === 'weighted' ? t?.weight_lb ?? e.start : null, reps: t?.reps ?? e.lo, setsDone: 0 }
   })
   const now = nowIso()
   patchApp({ active_session: { day, started_at: now, step: 0, step_started_at: now, steps, rest_until: null, note } })

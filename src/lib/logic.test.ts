@@ -8,7 +8,7 @@ import { generateWeekPlan } from './weekplan'
 import { restAfterSet, restBetween } from './rest'
 import { kgToLb } from './format'
 import type { Data } from './store'
-import { EX } from '../data/program'
+import { DAYS, EX } from '../data/program'
 import type { HabitEntry, Workout, WorkoutSet } from './types'
 
 describe('progression (7.5)', () => {
@@ -172,7 +172,11 @@ describe('activity-aware plan', () => {
     const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')], logs: [log('2026-10-17', { sport: 'hike', km: 21 })] }
     const p = trainingPlan(data, '2026-10-21')
     expect(p.day).toBe('C')
-    expect(p.skip).toEqual(['leg_curl', 'hip_thrust_machine', 'back_ext_45'])
+    expect(p.skip).toEqual(['leg_curl', 'back_ext_45'])
+  })
+  it('Day C never loads the glutes', () => {
+    expect(DAYS.C.keys).not.toContain('hip_thrust_machine')
+    expect(DAYS.C.keys.filter((k) => EX[k].kind === 'weighted' && k !== 'suitcase_carry')).toEqual(['leg_curl'])
   })
   it('hikes count toward glutes + hams', () => {
     expect(cardioCredit({ id: 'x', user_id: 'u', logged_at: '', local_date: '', type: 'cardio', data: { sport: 'hike', km: 21 } }).posterior).toBe(5)

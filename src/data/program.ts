@@ -21,6 +21,8 @@ export interface Exercise {
   icon: string
   /** hip thrust: maintain only */
   maintain?: boolean
+  /** no longer in the program (kept so old history still reads) */
+  retired?: boolean
   skill?: 'muscleup' | 'planche'
   /** stretch log 'which' value when done in a session */
   stretchWhich?: string
@@ -67,11 +69,13 @@ export const EXERCISES: Exercise[] = [
     credit: { neck: 2 }, note: 'Very light, slow, no pain.', icon: 'neck', rest: 60 },
 
   { key: 'leg_curl', name: 'Lying/seated leg curl (machine)', short: 'Leg curl', kind: 'weighted', days: ['C'], sets: 3, lo: 10, hi: 12, start: 65, step: 10, swap: 'Seated leg curl',
-    credit: { posterior: 3 }, note: 'Hamstrings pull the pelvis back into place.', icon: 'legcurl', rest: 90, legs: true },
-  { key: 'hip_thrust_machine', name: 'Hip thrust machine', short: 'Hip thrust', kind: 'weighted', days: ['C'], sets: 2, lo: 10, hi: 10, start: 90, step: 10, swap: 'Glute bridge',
-    credit: { posterior: 2 }, note: "Maintain only. Don't chase weight.", icon: 'hipthrust', maintain: true, rest: 90, legs: true },
-  { key: 'back_ext_45', name: '45° back extension, glute-focused (hold a plate)', short: '45° back extension', kind: 'weighted', days: ['C'], sets: 2, lo: 12, hi: 15, start: 10, step: 5,
-    credit: { posterior: 2 }, note: "Hug a plate to your chest. Round slightly, squeeze glutes, don't arch.", icon: 'backext', rest: 75, legs: true },
+    credit: { posterior: 3 }, note: 'Hamstrings pull the back of the pelvis down: the main muscle for fixing APT. Grows hamstrings, not glutes.', icon: 'legcurl', rest: 90, legs: true },
+  { key: 'hip_thrust_machine', name: 'Hip thrust machine', short: 'Hip thrust', kind: 'weighted', days: [], sets: 2, lo: 10, hi: 10, start: 90, step: 10, swap: 'Glute bridge',
+    credit: { posterior: 2 }, note: 'Removed: glutes are big enough. No glute loading.', icon: 'hipthrust', maintain: true, rest: 90, legs: true, retired: true },
+  { key: 'back_ext_45', name: '45° back extension, no weight (posture endurance)', short: '45° back extension', kind: 'bodyweight', days: ['C'], sets: 2, lo: 12, hi: 20, start: null, step: 1,
+    credit: { posterior: 1 }, note: 'No plate: this is endurance, not size. Tuck the pelvis, round slightly, stop at a straight line. Never arch.', icon: 'backext', rest: 60, legs: true },
+  { key: 'reverse_crunch', name: 'Reverse crunch', short: 'Reverse crunch', kind: 'bodyweight', days: ['C'], sets: 3, lo: 10, hi: 15, start: null, step: 1, swap: 'Hanging knee raise',
+    credit: { core: 3 }, note: 'Lift the hips off the floor with your lower abs, slowly. This is the exact move that tucks your pelvis.', icon: 'kneeraise', rest: 45 },
   { key: 'dead_bug', name: 'Dead bug', short: 'Dead bug', kind: 'bodyweight', days: ['C'], sets: 3, lo: 10, hi: 12, start: null, step: 1,
     credit: { core: 3 }, note: 'Lower back glued to the floor. Slow, breathe out as you reach.', icon: 'deadbug', rest: 45 },
   { key: 'bird_dog', name: 'Bird dog (each side)', short: 'Bird dog', kind: 'bodyweight', days: ['C'], sets: 3, lo: 8, hi: 12, start: null, step: 1,
@@ -112,10 +116,10 @@ export const EXERCISES: Exercise[] = [
       { name: 'Neck side stretch', dose: '30 s each side' }, { name: 'Cobra into child’s pose', dose: '45 s' },
     ] },
   { key: 'warmup_C', name: 'Warm-up: hips, hamstrings, glutes', short: 'Warm-up', kind: 'prep', days: ['C'], sets: 0, lo: 0, hi: 0, start: null, step: 0, credit: {},
-    note: 'Dynamic, about 6 minutes. Wake the glutes up before the machines.', icon: 'stretch',
+    note: 'Dynamic, about 6 minutes. Bodyweight only: wake the glutes up (activation, not growth).', icon: 'stretch',
     moves: [
       { name: 'Brisk walk or bike', dose: '2 min' }, { name: 'Leg swings, front-back + side', dose: '10 each leg' },
-      { name: 'Hip circles', dose: '10 each way' }, { name: 'Glute bridge', dose: '12' },
+      { name: 'Hip circles', dose: '10 each way' }, { name: 'Glute bridge, tuck pelvis first, no weight', dose: '12' },
       { name: 'Walking lunge with overhead reach', dose: '6 each leg' }, { name: 'Cat-cow', dose: '8' },
     ] },
   { key: 'cooldown_C', name: 'Cool-down: hip flexors, hamstrings, chest', short: 'Cool-down', kind: 'prep', days: ['C'], sets: 0, lo: 0, hi: 0, start: null, step: 0, credit: {},
@@ -137,8 +141,8 @@ export const DAYS: Record<DayCode, { name: string; sub: string; keys: string[] }
     keys: ['warmup_A', 'skill_muscleup', 'db_curl', 'db_oh_triceps', 'db_lateral', 'hollow_hold', 'cooldown_A'] },
   B: { name: 'Planche + Core & Neck', sub: 'Warm-up · Thenx skill · hammer · rear delts · core · neck · cool-down',
     keys: ['warmup_B', 'skill_planche', 'db_hammer', 'db_reardelt', 'hanging_knee_raise', 'side_plank', 'neck_curl_ext', 'cooldown_B'] },
-  C: { name: 'Legs, Core & Posture', sub: 'About 40 min · warm-up · hamstrings · core · carries · cool-down',
-    keys: ['warmup_C', 'leg_curl', 'hip_thrust_machine', 'back_ext_45', 'dead_bug', 'bird_dog', 'suitcase_carry', 'cooldown_C'] },
+  C: { name: 'Hamstrings, Core & Posture', sub: 'About 40 min · warm-up · hamstrings · lower abs · core · carries · cool-down. No glute loading.',
+    keys: ['warmup_C', 'leg_curl', 'back_ext_45', 'reverse_crunch', 'dead_bug', 'bird_dog', 'suitcase_carry', 'cooldown_C'] },
 }
 
 export const nextDay = (d: DayCode): DayCode => (d === 'A' ? 'B' : d === 'B' ? 'C' : 'A')
@@ -150,7 +154,7 @@ export const GROUPS: { key: Group; label: string; lo: number; hi: number; note: 
   { key: 'shoulders', label: 'Shoulders', lo: 8, hi: 14, note: 'rear delts help posture' },
   { key: 'core', label: 'Core', lo: 14, hi: 24, note: 'priority #1: sitting, walking and swimming tall' },
   { key: 'neck', label: 'Neck', lo: 2, hi: 6, note: 'balanced, light' },
-  { key: 'posterior', label: 'Glutes + hams', lo: 5, hi: 9, note: 'maintain glutes, strengthen hamstrings' },
+  { key: 'posterior', label: 'Hams + glutes', lo: 3, hi: 9, note: 'hamstrings only; glutes are activated, never loaded' },
 ]
 export const GROUP: Record<Group, (typeof GROUPS)[number]> = Object.fromEntries(GROUPS.map((g) => [g.key, g])) as any
 
@@ -163,7 +167,7 @@ export const SKILLS_SEED: Record<string, Skill> = {
 }
 
 /** Exercises that keep a weight/reps target. */
-export const TRACKED = () => EXERCISES.filter((e) => e.kind !== 'prep')
+export const TRACKED = () => EXERCISES.filter((e) => e.kind !== 'prep' && !e.retired)
 
 /** Starting target per exercise (seeded with calibrated=false). */
 export function seedTarget(e: Exercise): { weight_lb: number | null; reps: number } {
@@ -178,11 +182,12 @@ export function seedTarget(e: Exercise): { weight_lb: number | null; reps: numbe
  */
 export const DAILY_ROUTINE: { name: string; dose: string; icon: string }[] = [
   { name: 'Dead bug (lower back stays down)', dose: '1 × 8 slow', icon: 'deadbug' },
-  { name: 'Glute bridge, squeeze 2 s at top', dose: '1 × 12', icon: 'hipthrust' },
+  { name: 'Glute bridge, no weight: tuck pelvis, then squeeze 2 s', dose: '1 × 12', icon: 'hipthrust' },
   { name: 'Bird dog', dose: '1 × 6 each side', icon: 'birddog' },
   { name: 'Wall angels (back flat on wall)', dose: '1 × 8', icon: 'cheststretch' },
   { name: 'Half-kneeling hip flexor stretch, gentle (4/10)', dose: '30 s each side', icon: 'hipflexor' },
   { name: 'Chin tucks against a wall', dose: '8 × 3 s', icon: 'neck' },
+  { name: 'Standing pelvic tuck: tuck, hold 5 s, relax to neutral', dose: '1 × 8', icon: 'hollow' },
 ]
 export const ROUTINE_TIP = 'Gentle: stretches at 4/10, never painful. Sore afterwards means too deep or too long, so ease off.'
 

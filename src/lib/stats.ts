@@ -176,7 +176,7 @@ export function insights(w: WeekStats, prev: WeekStats, extra: { streak?: { now:
   if (g.pull > 1.6 * g.push && g.pull > 0) out.push({ bad: true, text: `Pull ${fmt1(g.pull)} vs push ${fmt1(g.push)}: pull-heavy. Keep planche days in.` })
   else if (g.push > 1.6 * g.pull && g.push > 0) out.push({ bad: true, text: `Push ${fmt1(g.push)} vs pull ${fmt1(g.pull)}: push-heavy. Tight chest, so watch it.` })
   else if (g.push + g.pull > 0) out.push({ bad: false, text: `Push/pull balanced (${fmt1(g.push)} / ${fmt1(g.pull)}).` })
-  if (g.posterior === 0 || w.byDayCode.C === 0) out.push({ bad: true, text: 'No posture day. Hamstrings and glutes hold your pelvis.' })
+  if (g.posterior === 0 || w.byDayCode.C === 0) out.push({ bad: true, text: 'No posture day. Hamstrings and lower abs pull your pelvis back into place.' })
   out.push(g.core < 14
     ? { bad: true, text: `Core got ${sets(g.core)}. Core is priority #1: aim for 14–24.` }
     : { bad: false, text: `Core got ${sets(g.core)}. On target.` })

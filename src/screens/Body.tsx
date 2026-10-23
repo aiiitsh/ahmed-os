@@ -187,7 +187,7 @@ function Targets() {
     <section className="panel">
       <div className="panel-head"><Label>Targets</Label><span className="label">tap to adjust</span></div>
       <div className="list">
-        {EXERCISES.filter((e) => e.kind !== 'skill' && e.kind !== 'stretch' && e.kind !== 'prep').map((e) => {
+        {EXERCISES.filter((e) => e.kind !== 'skill' && e.kind !== 'stretch' && e.kind !== 'prep' && !e.retired).map((e) => {
           const t = targets[e.key]
           if (!t) return null
           const f = firstThisWeek(e.key)

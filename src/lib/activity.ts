@@ -3,7 +3,7 @@ import type { Group, Log } from './types'
 
 export const WORKS: Record<string, string> = {
   swim: 'back, shoulders and core, plus cardio',
-  hike: 'legs and glutes, plus cardio',
+  hike: 'legs, plus cardio',
   run: 'legs, plus cardio',
   squash: 'legs, shoulders and core, plus cardio',
 }
