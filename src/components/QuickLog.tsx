@@ -3,7 +3,7 @@ import { create } from 'zustand'
 import { Icon } from './Icon'
 import { Sheet, Stepper, Label } from './ui'
 import { QuranBrowser } from './Quran'
-import { CARDIO, DAILY_ROUTINE, DURATIONS, FRENCH_ACTIVITIES, FRENCH_MINUTES, SWIM_INTENSITY } from '../data/program'
+import { CARDIO, DAILY_ROUTINE, DURATIONS, FRENCH_ACTIVITIES, FRENCH_MINUTES, ROUTINE_TIP, SWIM_INTENSITY } from '../data/program'
 import { logCardio, logFrench, logHike, logRoutine, logSwim, routineToday, startFocus, swimPlan } from '../lib/actions'
 import type { SwimDone } from '../lib/progression'
 import { useStore } from '../lib/store'
@@ -120,7 +120,7 @@ function RoutineSheet() {
   const done = !!routineToday()
   return (
     <div className="stack" style={{ gap: 14 }}>
-      <p className="muted small">Every day, about 6 minutes. Slow and controlled, breathe out on effort.</p>
+      <p className="muted small">About 8 minutes on non-gym days. {ROUTINE_TIP}</p>
       <div className="list">
         {DAILY_ROUTINE.map((r) => (
           <div key={r.name} className="li">
@@ -184,7 +184,7 @@ function CardioPicker() {
 }
 
 const TITLES: Record<SheetKey, string> = {
-  cardio: 'What did you do?', swim: 'Log swim', run: 'Run', squash: 'Squash', hike: 'Log hike', routine: 'Core & posture routine', quran: 'Quran', french: 'French', focus: 'Focus',
+  cardio: 'What did you do?', swim: 'Log swim', run: 'Run', squash: 'Squash', hike: 'Log hike', routine: 'Posture reset', quran: 'Quran', french: 'French', focus: 'Focus',
 }
 
 export function QuickSheets() {

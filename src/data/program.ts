@@ -171,14 +171,20 @@ export function seedTarget(e: Exercise): { weight_lb: number | null; reps: numbe
 }
 
 // --- Daily core & posture routine (~6 min, every day) ---
+/**
+ * Gentle posture reset (~8 min) for non-gym days: more activation than stretching.
+ * Stretches stay at about 4/10 effort; deep holds were leaving you sore.
+ * On gym days the warm-up and cool-down already cover this.
+ */
 export const DAILY_ROUTINE: { name: string; dose: string; icon: string }[] = [
-  { name: 'Dead bug', dose: '1 × 10 slow', icon: 'deadbug' },
-  { name: 'Bird dog', dose: '1 × 8 each side', icon: 'birddog' },
-  { name: 'Glute bridge', dose: '1 × 15, squeeze 2 s', icon: 'hipthrust' },
-  { name: 'Half-kneeling hip flexor stretch', dose: '45 s each side', icon: 'hipflexor' },
-  { name: 'Doorway chest stretch', dose: '45 s', icon: 'cheststretch' },
-  { name: 'Chin tucks against a wall', dose: '10 × 3 s hold', icon: 'neck' },
+  { name: 'Dead bug (lower back stays down)', dose: '1 × 8 slow', icon: 'deadbug' },
+  { name: 'Glute bridge, squeeze 2 s at top', dose: '1 × 12', icon: 'hipthrust' },
+  { name: 'Bird dog', dose: '1 × 6 each side', icon: 'birddog' },
+  { name: 'Wall angels (back flat on wall)', dose: '1 × 8', icon: 'cheststretch' },
+  { name: 'Half-kneeling hip flexor stretch, gentle (4/10)', dose: '30 s each side', icon: 'hipflexor' },
+  { name: 'Chin tucks against a wall', dose: '8 × 3 s', icon: 'neck' },
 ]
+export const ROUTINE_TIP = 'Gentle: stretches at 4/10, never painful. Sore afterwards means too deep or too long, so ease off.'
 
 // --- Swim: 25 m sprint front, rest, 25 m sprint back, rest, repeat ---
 export const SWIM_DEFAULT = { rest_s: 45, target_min: 20 }

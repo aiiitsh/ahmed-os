@@ -4,6 +4,7 @@ import { addDays, localDate, weekStart, dow } from './time'
 import { habitStats, groupSets } from './stats'
 import { trainingPlan, swimPlanFrom, dayPlan, tomorrowPreview } from './plan'
 import { cardioCredit } from './activity'
+import { generateWeekPlan } from './weekplan'
 import { restAfterSet, restBetween } from './rest'
 import { kgToLb } from './format'
 import type { Data } from './store'
@@ -206,5 +207,35 @@ describe('rest days', () => {
   it('a normal week does not force rest', () => {
     const data = { ...base(), workouts: [wo('2026-10-15', 'A'), wo('2026-10-17', 'B')] }
     expect(trainingPlan(data, '2026-10-19').state).toBe('go')
+  })
+})
+
+describe('weekly plan', () => {
+  const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
+  const wo = (d: string, code: 'A' | 'B' | 'C') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
+  const withPlan = (data: Data, plan: any): Data => ({ ...data, appState: { user_id: 'u', rotation_next: 'A', skills: {}, french_unit: 1, pending_bed_at: null, focus: null, active_session: null, streak_pin_hash: null, settings: { week_plans: { [plan.week_start]: plan } } } })
+
+  it('plans 3 gym days, 2 rest days, never Day C right after the Saturday cardio', () => {
+    const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')] }
+    const p = generateWeekPlan(data, '2026-10-24')
+    expect(p.days).toHaveLength(7)
+    expect(p.days.filter((s) => s.kind === 'gym')).toHaveLength(3)
+    expect(p.days.filter((s) => s.kind === 'rest')).toHaveLength(2)
+    expect(p.days[1]).not.toEqual({ kind: 'gym', day: 'C' }) // Sunday follows Saturday cardio
+    expect(new Set(p.days.filter((s) => s.kind === 'gym').map((s) => s.day))).toEqual(new Set(['A', 'B', 'C']))
+  })
+  it('today follows the plan: a planned run day is not a gym day', () => {
+    const plan = { week_start: '2026-10-24', created_at: '', why: [], days: [{ kind: 'run' }, { kind: 'gym', day: 'B' }, { kind: 'swim' }, { kind: 'gym', day: 'C' }, { kind: 'rest' }, { kind: 'gym', day: 'A' }, { kind: 'rest' }] }
+    const data = withPlan(base(), plan)
+    expect(trainingPlan(data, '2026-10-24')).toMatchObject({ state: 'off' })
+    expect(trainingPlan(data, '2026-10-25')).toMatchObject({ state: 'go', day: 'B' })
+    expect(trainingPlan(data, '2026-10-28')).toMatchObject({ state: 'rest' })
+  })
+  it('a planned Day C after a surprise squash game switches to upper body', () => {
+    const plan = { week_start: '2026-10-24', created_at: '', why: [], days: [{ kind: 'cardio' }, { kind: 'gym', day: 'C' }, { kind: 'swim' }, { kind: 'gym', day: 'B' }, { kind: 'rest' }, { kind: 'gym', day: 'A' }, { kind: 'rest' }] }
+    const data = { ...withPlan(base(), plan), logs: [{ id: 's', user_id: 'u', logged_at: '2026-10-24T15:00:00Z', local_date: '2026-10-24', type: 'cardio' as const, data: { sport: 'squash', minutes: 40 } }] }
+    const p = trainingPlan(data, '2026-10-25')
+    expect(p.day).not.toBe('C')
+    expect(p.why).toMatch(/Plan said Day C/)
   })
 })

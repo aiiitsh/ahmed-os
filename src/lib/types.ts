@@ -57,6 +57,24 @@ export interface Settings {
   swim?: SwimPlan
   /** Streak counts clean days from here when there are no earlier entries. */
   streak_start?: string
+  /** Weekly plans by week start (Saturday). */
+  week_plans?: Record<string, WeekPlan>
+}
+
+export type SlotKind = 'gym' | 'swim' | 'run' | 'hike' | 'squash' | 'cardio' | 'rest'
+
+/** One day of the weekly plan. */
+export interface PlanSlot {
+  kind: SlotKind
+  /** training day for gym slots */
+  day?: DayCode
+}
+
+export interface WeekPlan {
+  week_start: string
+  created_at: string
+  days: PlanSlot[]
+  why: string[]
 }
 
 export interface AppState {

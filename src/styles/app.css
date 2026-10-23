@@ -277,3 +277,15 @@ input[type=date].field { color-scheme: dark; }
 .set-dots i.done { background: #fff; box-shadow: 0 0 6px #fff; }
 .set-dots i.cur { background: #6a6a70; }
 .rest-panel { border-color: #fff; }
+
+/* weekly plan strip */
+.week-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; }
+.wk { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px 6px; border-radius: 12px; border: 1px solid var(--line); background: var(--panel); min-height: 84px; }
+.wk-d { font: 500 9px/1 var(--f-mono); letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.wk-l { font: 600 10px/1.1 var(--f-body); color: var(--text); text-align: center; }
+.wk-s { font: 600 11px/1 var(--f-mono); color: var(--text-strong); min-height: 11px; }
+.wk.today { border-color: #fff; box-shadow: 0 0 12px rgba(255,255,255,.3); }
+.wk.done { background: #fff; color: #000; border-color: #fff; }
+.wk.done .wk-d, .wk.done .wk-l, .wk.done .wk-s { color: #000; }
+.wk.done .icon-glow { filter: none; }
+.wk.missed { opacity: .4; border-style: dashed; }

@@ -7,6 +7,8 @@ import { addDays, daysBetween, localDate, weekStart } from './time'
 import { focusStats } from './stats'
 import { nextSwim } from './progression'
 import { WORKS, activityLoad, describeCardio, sportLabel } from './activity'
+import { SLOT_LABEL, slotOn } from './weekplan'
+import type { PlanSlot } from './types'
 
 export type PlanAction =
   | { kind: 'session'; day: DayCode }
@@ -25,13 +27,16 @@ export interface PlanItem {
 }
 
 export interface TrainingPlan {
-  state: 'done' | 'rest' | 'go'
+  /** off = a planned non-gym day (cardio) */
+  state: 'done' | 'rest' | 'go' | 'off'
   day: DayCode
   doneDay?: DayCode
   why: string
   /** steps to leave out today (e.g. leg machines when a hike already covered legs) */
   skip: string[]
   note?: string
+  /** today's slot in the weekly plan, if there is one */
+  slot?: PlanSlot | null
 }
 
 const isCardio = (l: Log, sport?: string) => l.type === 'cardio' && (!sport || l.data.sport === sport)
@@ -120,15 +125,32 @@ export function trainingPlan(data: Data, d = localDate()): TrainingPlan {
   const legs = legsTired(data, addDays(d, -1))
   const pull = pullTired(data, addDays(d, -1))
   const blocked = (c: DayCode) => (c === 'C' && legs) || (c === 'A' && pull)
+  const rest = restReason(data, d)
+  const slot = slotOn(data, d)
+
+  // Weekly plan: rest and cardio days come straight from it.
+  if (slot && slot.kind === 'rest') {
+    return { state: 'rest', day: order[0].code, why: rest ?? 'Planned rest day. Recovery is where you get stronger: gentle posture reset and a walk, nothing more.', skip: [], slot }
+  }
+  if (slot && slot.kind !== 'gym') {
+    if (rest) return { state: 'rest', day: order[0].code, why: `Plan said ${SLOT_LABEL[slot.kind].toLowerCase()}, but: ${rest}`, skip: [], slot }
+    return { state: 'off', day: order[0].code, why: `${SLOT_LABEL[slot.kind]} day in this week's plan. No gym today.`, skip: [], slot }
+  }
+  // Planned gym day: use the planned A/B/C unless yesterday already worked those muscles.
+  if (slot?.day) {
+    const planned = order.find((o) => o.code === slot.day)!
+    order.splice(order.indexOf(planned), 1)
+    order.unshift(planned)
+  }
   const pick = order.find((o) => !blocked(o.code)) ?? order[0]
   const top = order[0]
 
-  let why = pick.last == null
-    ? `Day ${pick.code} hasn't been done yet`
+  let why = slot?.day ? `Day ${pick.code} is in this week's plan`
+    : pick.last == null ? `Day ${pick.code} hasn't been done yet`
     : `Day ${pick.code} is the most overdue (last ${daysBetween(pick.last, d)} days ago)`
   if (pick.code !== top.code) {
-    why = top.code === 'C' ? `Day C waits: ${legs}. ${pick.code === 'A' ? 'Pull & arms' : 'Push & core'} instead.`
-      : `Day A waits: ${pull}. Day ${pick.code} instead.`
+    why = top.code === 'C' ? `${slot?.day ? 'Plan said Day C' : 'Day C waits'}: ${legs}. ${pick.code === 'A' ? 'Pull & arms' : 'Push & core'} instead.`
+      : `${slot?.day ? 'Plan said Day A' : 'Day A waits'}: ${pull}. Day ${pick.code} instead.`
   }
 
   // Day C after a week of hiking: keep the core & posture work, drop the leg machines.
@@ -141,9 +163,8 @@ export function trainingPlan(data: Data, d = localDate()): TrainingPlan {
     why += `. ${covered[0].toUpperCase()}${covered.slice(1)}, so today is core & posture only.`
   }
 
-  const rest = restReason(data, d)
-  if (rest) return { state: 'rest', day: pick.code, why: rest, skip, note }
-  return { state: 'go', day: pick.code, why, skip, note }
+  if (rest) return { state: 'rest', day: pick.code, why: slot ? `Plan said Day ${pick.code}, but: ${rest}` : rest, skip, note, slot }
+  return { state: 'go', day: pick.code, why, skip, note, slot }
 }
 
 export function dayPlan(data: Data, d = localDate()): PlanItem[] {
@@ -151,13 +172,23 @@ export function dayPlan(data: Data, d = localDate()): PlanItem[] {
   const yesterday = onDay(data.logs, addDays(d, -1))
   const items: PlanItem[] = []
 
-  // Core & posture routine: every day.
-  items.push({
-    key: 'routine', icon: 'hollow', title: 'Core & posture routine', sub: '6 min · dead bug, bird dog, bridge, stretches',
-    why: 'Every day. This is what fixes the pelvic tilt and makes you sit and walk tall.',
-    done: logs.some((l) => l.type === 'stretch' && l.data.which === 'daily_routine'),
-    action: { kind: 'sheet', sheet: 'routine' },
-  })
+  // Posture every day: inside the session on gym days, a gentle 8-min reset on other days.
+  const slot = slotOn(data, d)
+  const trainedToday = data.workouts.some((w) => w.local_date === d)
+  const routineDone = logs.some((l) => l.type === 'stretch' && l.data.which === 'daily_routine')
+  if (trainedToday || slot?.kind === 'gym') {
+    items.push({
+      key: 'routine', icon: 'hollow', title: 'Posture', sub: 'In your warm-up and cool-down today',
+      why: trainedToday ? undefined : 'Done as part of the gym session: no extra stretching needed.',
+      done: trainedToday || routineDone,
+    })
+  } else {
+    items.push({
+      key: 'routine', icon: 'hollow', title: 'Posture reset', sub: '8 min · gentle · activation + light stretches',
+      why: 'Every non-gym day. Gentle (4/10), so it fixes posture without leaving you sore.',
+      done: routineDone, action: { kind: 'sheet', sheet: 'routine' },
+    })
+  }
 
   // Cardio: any activity counts. Suggest a swim only when nothing was done lately.
   const cardioToday = logs.filter((l) => isCardio(l))
@@ -167,9 +198,12 @@ export function dayPlan(data: Data, d = localDate()): PlanItem[] {
   const plan = swimPlanFrom(data)
   let why: string | undefined
   let optional = false
-  const resting = !!restReason(data, d)
+  const resting = !!restReason(data, d) || slot?.kind === 'rest'
+  const plannedCardio = slot && slot.kind !== 'gym' && slot.kind !== 'rest' ? slot.kind : null
   if (!cardioToday.length) {
     if (resting) { optional = true; why = 'Rest day: an easy walk or a gentle swim at most.' }
+    else if (plannedCardio) why = `Planned for today: ${SLOT_LABEL[plannedCardio].toLowerCase()}${plannedCardio === 'cardio' ? ' (run, hike, squash or swim)' : ''}.`
+    else if (slot) { optional = true; why = 'Not planned today. Only if you feel like it.' }
     else if (cardioYesterday.length) {
       const y = cardioYesterday[0]
       optional = true
@@ -182,7 +216,7 @@ export function dayPlan(data: Data, d = localDate()): PlanItem[] {
   }
   items.push({
     key: 'cardio', icon: cardioToday[0]?.data.sport === 'hike' ? 'hike' : cardioToday[0]?.data.sport ?? 'swim',
-    title: cardioToday.length ? 'Cardio' : 'Cardio · swim',
+    title: cardioToday.length ? 'Cardio' : plannedCardio ? `${SLOT_LABEL[plannedCardio]} · planned` : 'Cardio · swim',
     sub: cardioToday.length ? `✓ ${cardioToday.map(describeCardio).join(' · ')}` : `25 m sprints · rest ${plan.rest_s} s · aim ${plan.target_min} min`,
     why, done: cardioToday.length > 0, optional, action: { kind: 'sheet', sheet: 'cardio' },
   })
@@ -216,9 +250,10 @@ export function tomorrowPreview(data: Data, today = localDate()): string[] {
   const tp = trainingPlan(data, t)
   const out: string[] = []
   out.push(tp.state === 'rest' ? 'REST DAY: routine + easy walk only. Don’t train.'
+    : tp.state === 'off' ? `${SLOT_LABEL[tp.slot!.kind]} day (no gym)`
     : `Day ${tp.day} · ${DAYS[tp.day].name}${tp.skip.length ? ' (core & posture only)' : ''}`)
   const cardioToday = onDay(data.logs, today).filter((l) => isCardio(l))
-  out.push(cardioToday.length ? `Cardio optional (you did ${cardioToday.map(describeCardio).join(', ')} today)` : 'Swim if you can')
+  if (tp.state !== 'off') out.push(cardioToday.length ? `Cardio optional (you did ${cardioToday.map(describeCardio).join(', ')} today)` : tp.slot ? 'No cardio planned' : 'Swim if you can')
   const tired = legsTired(data, today)
   if (tired) out.push(`Legs rest: ${tired.replace(' yesterday', ' today')}`)
   return out

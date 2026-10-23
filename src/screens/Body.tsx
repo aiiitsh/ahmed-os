@@ -234,8 +234,8 @@ function Routine() {
     <section className="panel deep stack" style={{ gap: 12 }}>
       <div className="row between">
         <div className="stack" style={{ gap: 4 }}>
-          <Label>Every day · 6 min</Label>
-          <div className="title" style={{ fontSize: 18 }}>Core & posture routine</div>
+          <Label>Non-gym days · 8 min · gentle</Label>
+          <div className="title" style={{ fontSize: 18 }}>Posture reset</div>
         </div>
         {done && <span className="chip on">✓ today</span>}
       </div>

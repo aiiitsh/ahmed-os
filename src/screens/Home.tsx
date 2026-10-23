@@ -11,6 +11,8 @@ import { Icon } from '../components/Icon'
 import { openSheet } from '../components/QuickLog'
 import { InstallHint } from '../components/InstallHint'
 import { dayPlan, tomorrowPreview, trainingPlan, type PlanItem } from '../lib/plan'
+import { WeekPlanPanel } from '../components/WeekPlan'
+import { SLOT_ICON, SLOT_LABEL } from '../lib/weekplan'
 
 export function Home() {
   const now = useNow(1000)
@@ -41,6 +43,7 @@ export function Home() {
         <div className="col">
           <TodayPlan />
           <Tomorrow />
+          <WeekPlanPanel />
         </div>
         <div className="col">
           <Reminders />
@@ -120,17 +123,19 @@ function TrainCard() {
   const plan = useMemo(() => trainingPlan(data), [data])
   const d = DAYS[plan.day]
   const first = EX[d.keys.find((k) => EX[k].kind !== 'skill') ?? d.keys[0]]
-  const label = plan.state === 'done' ? 'Trained today' : plan.state === 'rest' ? 'Recovery' : 'Train today'
+  const label = plan.state === 'done' ? 'Trained today' : plan.state === 'rest' ? 'Recovery' : plan.state === 'off' ? 'Today' : 'Train today'
+  const off = plan.state === 'off' ? plan.slot!.kind : null
+  const offSheet = off === 'cardio' ? 'cardio' : off === 'swim' || off === 'run' || off === 'hike' || off === 'squash' ? off : null
   return (
     <section className="panel deep stack" style={{ gap: 14 }}>
       <div className="row between">
         <Label>{label}</Label>
-        {plan.state !== 'rest' && <span className="pill">DAY {plan.state === 'done' ? plan.doneDay : plan.day}</span>}
+        {plan.state !== 'rest' && plan.state !== 'off' && <span className="pill">DAY {plan.state === 'done' ? plan.doneDay : plan.day}</span>}
       </div>
       <div className="row" style={{ gap: 14 }}>
-        <Icon name={plan.state === 'done' ? 'check' : plan.state === 'rest' ? 'bed' : first.icon} size={40} strokeWidth={1.3} />
+        <Icon name={plan.state === 'done' ? 'check' : plan.state === 'rest' ? 'bed' : off ? SLOT_ICON[off] : first.icon} size={40} strokeWidth={1.3} />
         <div className="stack grow" style={{ gap: 4 }}>
-          <div className="title" style={{ fontSize: plan.state === 'rest' ? 24 : 18 }}>{plan.state === 'done' ? `Day ${plan.doneDay} done` : plan.state === 'rest' ? 'REST DAY' : d.name}</div>
+          <div className="title" style={{ fontSize: plan.state === 'rest' ? 24 : 18 }}>{plan.state === 'done' ? `Day ${plan.doneDay} done` : plan.state === 'rest' ? 'REST DAY' : off ? `${SLOT_LABEL[off]} day` : d.name}</div>
           <div className="muted small">{plan.state === 'done' ? d.sub : plan.why}</div>
           {plan.state !== 'done' && plan.note && <span className="chip on sm" style={{ alignSelf: 'flex-start', marginTop: 4 }}>core & posture only</span>}
         </div>
@@ -138,7 +143,10 @@ function TrainCard() {
       {plan.state === 'go' && (
         <button className="btn btn-big btn-caps btn-outline pulse" onClick={() => startSession(plan.day, plan.skip, plan.note)}>Start</button>
       )}
-      {plan.state === 'rest' && (
+      {offSheet && (
+        <button className="btn btn-big btn-caps btn-outline" onClick={() => openSheet(offSheet as any)}>Log {SLOT_LABEL[off!].toLowerCase()}</button>
+      )}
+      {(plan.state === 'rest' || plan.state === 'off') && (
         <button className="link" style={{ alignSelf: 'center' }} onClick={() => startSession(plan.day, plan.skip, plan.note)}>Train anyway (Day {plan.day})</button>
       )}
     </section>

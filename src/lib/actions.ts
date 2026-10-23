@@ -7,7 +7,7 @@ import { nextSwim, progress, type SwimDone } from './progression'
 import { restAfterSet, restBetween, unlockAudio } from './rest'
 import { surahLatin } from '../data/surahs'
 import { swimPlanFrom } from './plan'
-import type { ActiveSession, DayCode, Feel, FocusBlock, HabitEntry, Log, LogType, QuranEvent, StepState, Target, Workout, WorkoutSet } from './types'
+import type { ActiveSession, DayCode, Feel, FocusBlock, HabitEntry, Log, LogType, PlanSlot, QuranEvent, StepState, Target, WeekPlan, Workout, WorkoutSet } from './types'
 
 // ---------- generic logs ----------
 
@@ -432,3 +432,24 @@ export function patchSettings(p: Record<string, any>) {
 }
 
 export type { ActiveSession }
+
+// ---------- weekly plan ----------
+
+export function saveWeekPlan(plan: WeekPlan) {
+  const app = get().appState
+  if (!app) return
+  const all = { ...(app.settings.week_plans ?? {}), [plan.week_start]: plan }
+  // keep the last 12 weeks
+  const keep = Object.keys(all).sort().slice(-12)
+  patchApp({ settings: { ...app.settings, week_plans: Object.fromEntries(keep.map((k) => [k, all[k]])) } })
+}
+
+export function setPlanSlot(ws: string, idx: number, slot: PlanSlot) {
+  const app = get().appState
+  const plan = app?.settings.week_plans?.[ws]
+  if (!app || !plan) return
+  const prevSettings = app.settings
+  const days = plan.days.map((s, i) => (i === idx ? slot : s))
+  saveWeekPlan({ ...plan, days })
+  toast('Plan updated', () => patchApp({ settings: prevSettings }))
+}
