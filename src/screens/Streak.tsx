@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useStore, set } from '../lib/store'
 import { habitStats } from '../lib/stats'
-import { addDays, fmtDay, localDate, monShort, weekStart } from '../lib/time'
-import { deleteHabit, hashPin, saveHabit, setStreakStart } from '../lib/actions'
+import { addDays, fmtDay, localDate, weekStart } from '../lib/time'
+import { deleteHabit, hashPin, saveHabit } from '../lib/actions'
 import { Segmented } from '../components/QuickLog'
 import { Label, Stepper } from '../components/ui'
 import { Icon } from '../components/Icon'
@@ -52,7 +52,6 @@ function StreakBody() {
   const streakStart = useStore((s) => s.appState?.settings?.streak_start)
   const today = localDate()
   const st = useMemo(() => habitStats(habits, today, streakStart), [habits, today, streakStart])
-  const [editStart, setEditStart] = useState(false)
   const byDate = useMemo(() => Object.fromEntries(habits.map((h) => [h.entry_date, h])), [habits])
 
   const [date, setDate] = useState(today)
@@ -78,9 +77,9 @@ function StreakBody() {
     setDate(today)
   }
 
-  // Heat map: 26 week columns, rows Sat → Fri, last column = this week.
-  const firstCol = addDays(weekStart(today), -7 * 25)
-  const cols = Array.from({ length: 26 }, (_, c) => addDays(firstCol, c * 7))
+  // Heat map: last 4 weeks, one row per week (Sat → Fri), this week at the bottom.
+  const firstRow = addDays(weekStart(today), -7 * 3)
+  const rows = Array.from({ length: 4 }, (_, r) => addDays(firstRow, r * 7))
   const lvl = (n: number) => (n <= 0 ? '' : n >= 4 ? 'h4' : `h${n}`)
   const cellCls = (e?: { count: number; porn?: boolean }) => (e ? `${lvl(e.count)}${e.porn && e.count > 0 ? ' p' : ''}` : '')
   const selEntry = sel ? byDate[sel] : null
@@ -99,7 +98,7 @@ function StreakBody() {
             {!st.hasAny ? (
               <>
                 <div className="hero-word" style={{ fontSize: 64 }}>0</div>
-                <p className="muted">Your streak starts today. Already clean for a while? Set the first clean day below.</p>
+                <p className="muted">Your streak starts today.</p>
               </>
             ) : (
               <>
@@ -107,23 +106,9 @@ function StreakBody() {
                 <Label>{st.current === 1 ? 'day' : 'days'}</Label>
                 <div className="row" style={{ gap: 26, marginTop: 8 }}>
                   <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{st.best}</span><Label>Best streak</Label></div>
-                  <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{st.monthTimes} / {st.monthDays}</span><Label>Month · times / days</Label></div>
-                  {st.pornDaysMonth > 0 && (
-                    <div className="stack" style={{ gap: 3 }}><span className="big-num red-text" style={{ fontSize: 20 }}>{st.pornDaysMonth}</span><Label>Porn days</Label></div>
-                  )}
+                  <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{st.cleanDays}<span className="muted" style={{ fontSize: 13 }}> / {st.days}</span></span><Label>Clean days · 4 wks</Label></div>
                 </div>
               </>
-            )}
-            {editStart ? (
-              <div className="row" style={{ gap: 8, width: '100%', marginTop: 6 }}>
-                <input className="field grow" type="date" max={today} defaultValue={streakStart ?? today}
-                  onChange={(e) => e.target.value && setStreakStart(e.target.value)} />
-                <button className="btn" onClick={() => setEditStart(false)}>Done</button>
-              </div>
-            ) : (
-              <button className="link" onClick={() => setEditStart(true)}>
-                {streakStart ? `Counting from ${fmtDay(streakStart)} · change` : 'Set first clean day'}
-              </button>
             )}
           </section>
 
@@ -143,22 +128,16 @@ function StreakBody() {
 
         <div className="col">
           <section className="panel stack" style={{ gap: 12 }}>
-            <Label>Last 26 weeks</Label>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(26, 1fr)', gap: 3 }}>
-              {cols.map((c, i) => {
-                const prev = i > 0 ? cols[i - 1] : null
-                const show = !prev || c.slice(5, 7) !== prev.slice(5, 7)
-                return <span key={c} className="label" style={{ fontSize: 7, letterSpacing: '.05em', overflow: 'visible', whiteSpace: 'nowrap' }}>{show ? monShort(c) : ''}</span>
-              })}
-            </div>
-            <div className="heat" style={{ gridTemplateColumns: 'repeat(26, 1fr)' }}>
-              {cols.flatMap((c) => Array.from({ length: 7 }, (_, r) => {
-                const d = addDays(c, r)
+            <Label>Last 4 weeks</Label>
+            <div className="heat heat-rows">
+              {['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((w) => <span key={w} className="label" style={{ fontSize: 9, textAlign: 'center', letterSpacing: '.08em' }}>{w}</span>)}
+              {rows.flatMap((r) => Array.from({ length: 7 }, (_, i) => {
+                const d = addDays(r, i)
                 const e = byDate[d]
                 const fut = d > today
                 return (
-                  <button key={d} className={`c ${cellCls(e)}${fut ? ' fut' : ''}${sel === d ? ' sel' : ''}`}
-                    aria-label={`${d}: ${e?.count ?? 0}`} onClick={() => setSel(sel === d ? null : d)} />
+                  <button key={d} className={`c ${cellCls(e)}${fut ? ' fut' : ''}${sel === d ? ' sel' : ''}${d === today ? ' now' : ''}`}
+                    aria-label={`${d}: ${e?.count ?? 0}`} onClick={() => setSel(sel === d ? null : d)}><span>{Number(d.slice(8))}</span></button>
                 )
               }))}
             </div>
@@ -190,11 +169,14 @@ function StreakBody() {
           </section>
 
           <section className="panel">
-            <div className="panel-head"><Label>Stats</Label></div>
+            <div className="panel-head"><Label>Stats · last 4 weeks</Label><span className="label">older doesn't count</span></div>
             <div className="list">
-              <div className="li"><span className="grow">Average per week (8 wks)</span><span className="mono strong">{st.avgPerWeek.toFixed(1)}</span></div>
-              <div className="li"><span className="grow">Most common weekday</span><span className="mono strong">{st.topWeekday == null ? '—' : WD[st.topWeekday]}</span></div>
-              <div className="li"><span className="grow">Last 7 days vs previous 7</span><span className="mono strong">{st.last7} vs {st.prev7}</span></div>
+              <div className="li"><span className="grow">Clean days</span><span className="mono strong">{st.cleanDays} of {st.days}</span></div>
+              <div className="li"><span className="grow">Times</span><span className="mono strong">{st.times}</span></div>
+              <div className="li"><span className="grow">Average per week</span><span className="mono strong">{st.avgPerWeek.toFixed(1)}</span></div>
+              <div className="li"><span className="grow">Each week · oldest → now</span><span className="mono strong">{st.perWeek.join(' · ')}</span></div>
+              {st.pornDays > 0 && <div className="li"><span className="grow">Days with porn</span><span className="mono strong red-text">{st.pornDays}</span></div>}
+              {st.topWeekday != null && <div className="li"><span className="grow">Most common day</span><span className="mono strong">{WD[st.topWeekday]}</span></div>}
             </div>
           </section>
 

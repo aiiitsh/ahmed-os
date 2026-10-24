@@ -71,24 +71,28 @@ export function habitStats(entries: HabitEntry[], today = localDate(), start?: s
   for (let i = 1; i < positives.length; i++) best = Math.max(best, daysBetween(positives[i - 1], positives[i]) - 1)
   if (positives.length && first && first < positives[0]) best = Math.max(best, daysBetween(first, positives[0]))
 
-  const month = today.slice(0, 7)
-  const monthRows = sorted.filter((e) => e.entry_date.startsWith(month) && e.count > 0)
-  const sumRange = (from: string, to: string) =>
-    sorted.filter((e) => e.entry_date >= from && e.entry_date <= to).reduce((a, e) => a + e.count, 0)
-  const last8 = sumRange(addDays(today, -55), today)
+  // Everything below looks at the last 4 weeks only: old history shouldn't drag today's numbers.
+  const from = first && first > addDays(today, -27) ? first : addDays(today, -27)
+  const days = first ? daysBetween(from, today) + 1 : 0
+  const inWin = sorted.filter((e) => e.entry_date >= from && e.entry_date <= today && e.count > 0)
+  const sumRange = (a: string, b: string) =>
+    sorted.filter((e) => e.entry_date >= a && e.entry_date <= b).reduce((n, e) => n + e.count, 0)
+  const times = inWin.reduce((a, e) => a + e.count, 0)
   const wdCount = Array(7).fill(0)
-  for (const e of sorted) if (e.count > 0) wdCount[dow(e.entry_date)] += e.count
+  for (const e of inWin) wdCount[dow(e.entry_date)] += e.count
   const topWd = wdCount.some((x) => x > 0) ? wdCount.indexOf(Math.max(...wdCount)) : null
 
   return {
     current, best, hasAny: sorted.length > 0 || !!first,
-    pornDaysMonth: sorted.filter((e) => e.entry_date.startsWith(month) && e.count > 0 && e.porn).length,
-    monthTimes: monthRows.reduce((a, e) => a + e.count, 0),
-    monthDays: monthRows.length,
-    avgPerWeek: last8 / 8,
+    /** days counted in the 4-week window (fewer if tracking started recently) */
+    days,
+    cleanDays: days - inWin.length,
+    times,
+    pornDays: inWin.filter((e) => e.porn).length,
+    avgPerWeek: days ? times / Math.max(1, days / 7) : 0,
+    /** times per 7-day block, oldest first, the last block ends today */
+    perWeek: [3, 2, 1, 0].map((k) => sumRange(addDays(today, -7 * k - 6), addDays(today, -7 * k))),
     topWeekday: topWd,
-    last7: sumRange(addDays(today, -6), today),
-    prev7: sumRange(addDays(today, -13), addDays(today, -7)),
   }
 }
 

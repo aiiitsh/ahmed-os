@@ -289,3 +289,11 @@ input[type=date].field { color-scheme: dark; }
 .wk.done .wk-d, .wk.done .wk-l, .wk.done .wk-s { color: #000; }
 .wk.done .icon-glow { filter: none; }
 .wk.missed { opacity: .4; border-style: dashed; }
+
+/* streak: 4 weeks as rows, Sat → Fri */
+.heat.heat-rows { grid-auto-flow: row; grid-template-rows: none; grid-template-columns: repeat(7, 1fr); gap: 6px; }
+.heat-rows .c { border-radius: 8px; display: grid; place-items: center; }
+.heat-rows .c span { font: 500 10px/1 var(--f-mono); color: #8a8a90; }
+.heat-rows .c.h3 span, .heat-rows .c.h4 span { color: #000; }
+.heat-rows .c.p span { color: #fff; }
+.heat-rows .c.now { border-color: #fff; }

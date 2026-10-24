@@ -81,6 +81,15 @@ describe('habit streak (9.7)', () => {
     expect(s.current).toBe(0)
     expect(s.best).toBe(2)
   })
+  it('stats only look at the last 4 weeks', () => {
+    const s = habitStats([e('2026-08-01', 3), e('2026-09-01', 2)], '2026-10-10')
+    expect(s.times).toBe(0)
+    expect(s.avgPerWeek).toBe(0)
+    expect(s.cleanDays).toBe(28)
+    const t = habitStats([e('2026-09-01', 2), e('2026-10-03', 1), e('2026-10-09', 2)], '2026-10-10')
+    expect(t.times).toBe(3)
+    expect(t.perWeek).toEqual([0, 0, 1, 2])
+  })
   it('best streak looks at gaps between positive days', () => {
     expect(habitStats([e('2026-09-01', 1), e('2026-09-20', 1), e('2026-10-08', 1)], '2026-10-10').best).toBe(18)
   })
