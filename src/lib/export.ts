@@ -1,17 +1,18 @@
-// Week summary for the review with Claude (plain text + JSON).
+// Week and month summaries for the review with Claude (plain text + JSON).
 import { DAYS, EX, GROUPS, GOALS, STRETCH_LABEL, isSecs } from '../data/program'
 import { surahLatin, surahName } from '../data/surahs'
 import type { Data } from './store'
 import { focusCoach, habitStats, insights, weekStats, type WeekStats } from './stats'
-import { addDays, fmtDay, fmtDur, hhmm, localDate, minutesBetween } from './time'
+import { addDays, daysBetween, fmtDay, fmtDur, hhmm, localDate, minutesBetween, weekStart } from './time'
 import { describeLog } from './describe'
 import { swimPlanFrom } from './plan'
+import { WEEKDAYS, planFor, slotStatus, slotText, unplanned } from './weekplan'
 
-export function weightChanges(data: Data, w: WeekStats) {
+export function weightChanges(data: Data, w: Pick<WeekStats, 'sets' | 'workouts'>) {
   const out: { key: string; name: string; from: string; to: string; dir: number }[] = []
   for (const key of new Set(w.sets.map((s) => s.exercise_key))) {
     const ex = EX[key]
-    if (!ex || ex.kind === 'stretch') continue
+    if (!ex || ex.kind === 'stretch' || ex.kind === 'prep' || ex.kind === 'skill') continue
     const rows = w.sets.filter((s) => s.exercise_key === key && !s.skipped)
     if (!rows.length) continue
     const order = (id: string) => w.workouts.find((x) => x.id === id)?.started_at ?? ''
@@ -23,7 +24,8 @@ export function weightChanges(data: Data, w: WeekStats) {
     const toR = last.next_reps ?? t?.reps ?? null
     const dw = (toW ?? 0) - (first.weight_lb ?? 0)
     const dr = (toR ?? 0) - (first.reps ?? 0)
-    out.push({ key, name: ex.short, from: fmt(first.weight_lb, first.reps), to: fmt(toW, toR), dir: Math.sign(dw || dr) })
+    const from = fmt(first.weight_lb, first.reps), to = fmt(toW, toR)
+    if (from !== to) out.push({ key, name: ex.short, from, to, dir: Math.sign(dw || dr) })
   }
   return out
 }
@@ -111,7 +113,7 @@ export function buildText(data: Data, start: string): string {
     for (const s of w.sets.filter((x) => x.workout_id === wo.id).sort((a, b) => a.position - b.position)) {
       const ex = EX[s.exercise_key]
       if (s.skipped) { L.push(`  - ${s.name_used}: skipped`); continue }
-      if (ex?.kind === 'stretch') { L.push(`  - ${s.name_used}: done`); continue }
+      if (ex?.kind === 'stretch' || ex?.kind === 'prep') { L.push(`  - ${s.name_used}: done`); continue }
       const unit = ex && isSecs(ex) ? 's' : ''
       const load = s.weight_lb != null ? ` @ ${s.weight_lb} lb` : ''
       const next = s.next_reps != null ? ` → next ${s.next_weight_lb != null ? `${s.next_weight_lb} lb × ` : ''}${s.next_reps}${unit}` : ''
@@ -148,3 +150,145 @@ export function buildText(data: Data, start: string): string {
   L.push(w.frenchMin ? `French: ${w.frenchMin} min on ${w.frenchDays} days.` : 'No French logged.')
   return L.join('\n')
 }
+
+// ---------- month: 4 full weeks side by side, plus this week so far ----------
+
+const r1 = (n: number) => Math.round(n * 10) / 10
+const km = (w: WeekStats) => w.hikes.reduce((a, l) => a + (Number(l.data.km) || 0), 0)
+const cardioMin = (w: WeekStats) => w.cardio.filter((l) => l.data.sport !== 'hike').reduce((a, l) => a + (Number(l.data.minutes) || 0), 0)
+
+/** One line per workout: what was done and how it felt. */
+function workoutLine(w: WeekStats, wo: WeekStats['workouts'][number]) {
+  const parts: string[] = []
+  if (wo.skill_key) parts.push(`Thenx ${wo.skill_key} ${wo.skill_done ? `${wo.skill_minutes ?? '?'} min` : 'skipped'}`)
+  for (const s of w.sets.filter((x) => x.workout_id === wo.id).sort((a, b) => a.position - b.position)) {
+    const ex = EX[s.exercise_key]
+    if (!ex || ex.kind === 'prep' || ex.kind === 'stretch') continue
+    if (s.skipped) { parts.push(`${ex.short} skipped`); continue }
+    const unit = isSecs(ex) ? 's' : ''
+    parts.push(`${ex.short} ${s.sets}×${s.reps}${unit}${s.weight_lb != null ? ` @${s.weight_lb}` : ''}${s.feel ? ` ${s.feel}` : ''}`)
+  }
+  const min = workoutMinutes(wo)
+  return `  - ${fmtDay(wo.local_date)} Day ${wo.day_code} · ${min ?? '?'} min${wo.ended_early ? ' · ended early' : ''}: ${parts.join('; ') || 'no sets saved'}`
+}
+
+export function buildMonthText(data: Data, today = localDate()): string {
+  const cur = weekStart(today)
+  const starts = [4, 3, 2, 1].map((k) => addDays(cur, -7 * k)) // full weeks, oldest first
+  const W = starts.map((s) => weekStats(data, s))
+  const now = weekStats(data, cur)
+  const soFar = daysBetween(cur, today) + 1
+  const last = W[3]
+  const before = W.slice(0, 3)
+  const L: string[] = []
+  const h = (t: string) => L.push('', `## ${t}`)
+
+  L.push(`AHMED OS · MONTH ${fmtDay(starts[0])} → ${fmtDay(addDays(cur, -1))} + this week so far (Sat–Fri weeks, America/Toronto, weights in lb)`)
+  L.push('Please compare my last full week with the weeks before it, point out trends (good and bad), and help me plan the coming week Sat–Fri: which days gym (A/B/C), cardio and rest, weights to raise or lower, APT/posture work (no glute growth), and 3 concrete tips to focus longer.')
+  L.push('Program: A = muscle-up + arms, B = planche + core & neck, C = hamstrings, core & posture. Goals: 3–4 sessions, core 14–24 sets, arms 12–20, posture routine 5+ days, focus 15 h.')
+
+  // Week by week table
+  h('Week by week (oldest → newest)')
+  const row = (label: string, w: WeekStats) => [
+    label,
+    `${w.workouts.length} (A${w.byDayCode.A} B${w.byDayCode.B} C${w.byDayCode.C})`,
+    `${Math.round(w.hardPct * 100)}%`,
+    fmt(w.groups.arms), fmt(w.groups.core), `${fmt(w.groups.pull)}/${fmt(w.groups.push)}`, fmt(w.groups.posterior),
+    `${w.cardio.length}${w.cardio.length ? ` (${[cardioMin(w) && `${cardioMin(w)} min`, km(w) && `${km(w)} km`].filter(Boolean).join(', ')})` : ''}`,
+    `${w.routineDays}/7`,
+    fmtDur(w.fo.total), `${Math.round(w.fo.longest)}m`, `${w.fo.lost}`,
+    `${w.quran.length}`,
+  ].join(' | ')
+  L.push('Week | Gym | Hard | Arms | Core | Pull/Push | Hams | Cardio | Posture | Focus | Longest | Lost focus | Quran')
+  L.push('--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---')
+  W.forEach((w, i) => L.push(row(`${fmtDay(w.start)}${i === 3 ? ' (last full)' : ''}`, w)))
+  L.push(row(`${fmtDay(cur)} so far (${soFar}/7 days)`, now))
+
+  // Last full week vs the 3 before
+  h('Last full week vs the 3 before')
+  const avg = (f: (w: WeekStats) => number) => before.reduce((a, w) => a + f(w), 0) / before.length
+  const cmp = (label: string, f: (w: WeekStats) => number, unit = '', higherIsBetter = true) => {
+    const v = f(last), a = avg(f)
+    const d = v - a
+    const tag = Math.abs(d) < 0.05 * Math.max(1, a) ? 'same' : (d > 0) === higherIsBetter ? 'better' : 'worse'
+    L.push(`- ${label}: ${r1(v)}${unit} vs avg ${r1(a)}${unit} → ${tag}`)
+  }
+  cmp('Gym sessions', (w) => w.workouts.length)
+  cmp('Arms sets', (w) => w.groups.arms)
+  cmp('Core sets', (w) => w.groups.core)
+  cmp('Pull sets', (w) => w.groups.pull)
+  cmp('Hard sets', (w) => w.hardPct * 100, '%', false)
+  cmp('Cardio sessions', (w) => w.cardio.length)
+  cmp('Posture routine days', (w) => w.routineDays)
+  cmp('Focus hours', (w) => w.fo.total / 60, ' h')
+  cmp('Longest focus block', (w) => w.fo.longest, ' min')
+  cmp('Lost focus', (w) => w.fo.lost, '×', false)
+  if (data.appState?.settings?.show_streak_in_review) {
+    const st = habitStats(data.habits, today, data.appState?.settings?.streak_start)
+    L.push(`- Streak: ${st.current} days now · last 4 weeks: ${st.cleanDays}/${st.days} clean days, ${r1(st.avgPerWeek)} per week (${st.perWeek.join(' · ')})`)
+  }
+
+  // Plan vs what happened
+  const planned = [...starts, cur].filter((s) => planFor(data, s))
+  if (planned.length) {
+    h('Weekly plan vs what happened (✓ done, ✗ missed, + unplanned)')
+    for (const s of planned) {
+      const p = planFor(data, s)!
+      const cells = p.days.map((slot, i) => {
+        const d = addDays(s, i)
+        if (d > today) return `${WEEKDAYS[i]} ${slotText(slot)}`
+        const st = slotStatus(data, d, slot, today)
+        const extra = unplanned(data, d, slot)
+        return `${WEEKDAYS[i]} ${slotText(slot)} ${st === 'done' ? '✓' : st === 'missed' ? '✗' : '…'}${extra.length ? ` +${extra.join('+')}` : ''}`
+      })
+      L.push(`- Week of ${fmtDay(s)}: ${cells.join(' · ')}`)
+    }
+  }
+  const nextPlan = planFor(data, addDays(cur, 7))
+  if (nextPlan) L.push(`- Next week (draft): ${nextPlan.days.map((slot, i) => `${WEEKDAYS[i]} ${slotText(slot)}`).join(' · ')}`)
+
+  // App rules on the last full week
+  h(`App insights · last full week (${fmtDay(last.start)})`)
+  for (const i of insights(last, W[2])) L.push(`${i.bad ? '[!]' : '[ok]'} ${i.text}`)
+
+  // Training detail
+  h('Workouts')
+  for (const w of [...W, now]) {
+    if (!w.workouts.length) { L.push(`Week of ${fmtDay(w.start)}: no gym`); continue }
+    L.push(`Week of ${fmtDay(w.start)}:`)
+    for (const wo of [...w.workouts].sort((x, y) => x.started_at.localeCompare(y.started_at))) L.push(workoutLine(w, wo))
+  }
+  const all = { sets: [...W, now].flatMap((w) => w.sets), workouts: [...W, now].flatMap((w) => w.workouts) }
+  const changes = weightChanges(data, all)
+  if (changes.length) {
+    L.push('', 'Targets over the month (first → now):')
+    for (const c of changes) L.push(`  - ${c.name}: ${c.from} → ${c.to}${c.dir > 0 ? ' ↑' : c.dir < 0 ? ' ↓' : ''}`)
+  }
+
+  // Cardio
+  h('Cardio & posture')
+  const sp = swimPlanFrom(data)
+  L.push(`Next swim: 25 m sprints belly/back, rest ${sp.rest_s} s, aim ${sp.target_min} min.`)
+  const cardio = [...W, now].flatMap((w) => w.cardio).sort((x, y) => x.logged_at.localeCompare(y.logged_at))
+  L.push(cardio.length ? cardio.map((l) => `- ${fmtDay(l.local_date)} ${describeLog(l).text}`).join('\n') : 'No cardio logged.')
+  L.push(`Posture routine days per week: ${[...W, now].map((w) => w.routineDays).join(' · ')} (last = this week so far).`)
+
+  // Focus
+  h('Focus')
+  for (const w of [...W, now]) {
+    const byDay = w.days.map((d) => w.focus.filter((b) => b.local_date === d && b.block_type === 'focus').reduce((a, b) => a + minutesBetween(b.started_at, b.ended_at), 0))
+    L.push(`- Week of ${fmtDay(w.start)}: ${fmtDur(w.fo.total)} · ${w.fo.blocks} blocks · longest ${Math.round(w.fo.longest)}m · avg ${Math.round(w.fo.average)}m · lost ${w.fo.lost}× · by day ${byDay.map((m) => Math.round(m)).join('/')} min`)
+  }
+  const coach = focusCoach(last, W[2])
+  if (coach.length) { L.push('App suggestions (last full week):'); for (const c of coach) L.push(`  - ${c.text}`) }
+
+  // Learn
+  h('Quran & French (no targets)')
+  const quran = [...W, now].flatMap((w) => w.quran).sort((x, y) => x.at.localeCompare(y.at))
+  L.push(quran.length ? quran.map((e) => `- ${fmtDay(e.local_date)} ${e.kind} ${surahLatin(e.surah)} (${e.surah})`).join('\n') : 'No Quran entries.')
+  const fr = [...W, now].reduce((a, w) => a + w.frenchMin, 0)
+  L.push(fr ? `French: ${fr} min over the month.` : 'No French logged.')
+  return L.join('\n')
+}
+
+const fmt = (n: number) => String(r1(n))

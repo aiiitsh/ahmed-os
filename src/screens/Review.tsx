@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useStore, putRows, uid } from '../lib/store'
 import { addDays, fmtDay, fmtDur, weekStart } from '../lib/time'
 import { fmt1 } from '../lib/stats'
-import { buildJson, buildText, buildWeek } from '../lib/export'
+import { buildJson, buildMonthText, buildWeek } from '../lib/export'
 import { toast } from '../lib/toast'
 import { GROUPS, GOALS } from '../data/program'
 import type { WeeklyReview } from '../lib/types'
@@ -29,12 +29,12 @@ export function Review() {
   }
 
   const copy = async () => {
-    const text = buildText(data, start)
+    const text = buildMonthText(data)
     try {
       await navigator.clipboard.writeText(text)
-      toast('Week summary copied · paste it to Claude')
+      toast('Month summary copied · paste it to Claude')
     } catch {
-      download(`ahmed-os-week-${start}.txt`, text, 'text/plain')
+      download(`ahmed-os-month-${weekStart()}.txt`, text, 'text/plain')
       toast('Clipboard blocked · saved as a file instead')
     }
     saveReview()
@@ -80,7 +80,8 @@ export function Review() {
 
         <section className="panel stack" style={{ gap: 12 }}>
           <Label>Export for Claude</Label>
-          <button className="btn btn-filled btn-big" onClick={copy}><Icon name="copy" size={20} /> Copy week summary</button>
+          <button className="btn btn-filled btn-big" onClick={copy}><Icon name="copy" size={20} /> Copy month summary</button>
+          <span className="small muted" style={{ textAlign: 'center' }}>Last 4 weeks side by side + this week so far, to plan next week.</span>
           <button className="btn btn-big" onClick={json}><Icon name="download" size={20} /> Download JSON</button>
           <Notes key={start} initial={thisReview?.claude_notes ?? ''} onSave={(n) => { saveReview(n || null); toast("Claude's notes saved") }} />
         </section>
