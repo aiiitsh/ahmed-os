@@ -1,13 +1,15 @@
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { focusStats } from '../lib/stats'
 import { addDays, dowShort, fmtClock, fmtDur, fmtStopwatch, localDate, localMinutes, minutesBetween, weekDays, weekStart } from '../lib/time'
-import { focusBreak, focusResume, focusStop, startFocus } from '../lib/actions'
+import { focusBreak, focusResume, focusStop, setFocusTag, startFocus, tagBlock, toggleTask } from '../lib/actions'
 import { GOALS } from '../data/program'
-import { Bar, Label, useNow } from '../components/ui'
+import { Bar, Label, Sheet, useNow } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { Stat } from './Learn'
-import type { FocusBlock } from '../lib/types'
+import type { FocusBlock, FocusTag } from '../lib/types'
+import { byCategory, byWhat, tagLabel, tagOf } from '../lib/focustags'
+import { TagEditor, TagPicker } from '../components/FocusTag'
 import { TasksPanel } from '../components/Tasks'
 
 export function Work() {
@@ -22,6 +24,9 @@ export function Work() {
   const week = useMemo(() => focusStats(blocks.filter((b) => b.local_date >= start)), [blocks, start])
   const lastWeek = useMemo(() => focusStats(blocks.filter((b) => b.local_date >= addDays(start, -7) && b.local_date < start)), [blocks, start])
   const running = focus ? now - new Date(focus.started_at).getTime() : 0
+  const [tag, setTag] = useState<FocusTag>({})
+  const [editing, setEditing] = useState(false)
+  const start_ = () => { startFocus(tag); setTag({}) }
 
   return (
     <div className="page">
@@ -36,11 +41,13 @@ export function Work() {
           <>
             <Label>Real, deep focus · phone away</Label>
             <div className="timer dim" style={{ textShadow: 'none', color: 'var(--dim)' }}>00:00</div>
-            <button className="btn btn-big btn-filled btn-caps btn-block" style={{ minHeight: 72 }} onClick={() => startFocus()}><Icon name="focus" size={22} glow={false} /> Start focus</button>
+            <TagPicker value={tag} onChange={setTag} />
+            <button className="btn btn-big btn-filled btn-caps btn-block" style={{ minHeight: 72 }} onClick={start_}><Icon name="focus" size={22} glow={false} /> Start focus</button>
           </>
         ) : focus.mode === 'focus' ? (
           <>
             <Label>Deep focus</Label>
+            <RunningTag onEdit={() => setEditing(true)} />
             <div className="timer pulse-text" style={{ fontSize: 'clamp(48px, 16vw, 84px)' }}>{fmtStopwatch(running)}</div>
             {running > 3 * 3600000 ? (
               <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
@@ -61,6 +68,7 @@ export function Work() {
         ) : (
           <>
             <Label>Break</Label>
+            <RunningTag onEdit={() => setEditing(true)} />
             <div className="timer sm" style={{ fontSize: 'clamp(40px, 12vw, 60px)' }}>{fmtStopwatch(running)}</div>
             <div className="grid2" style={{ width: '100%' }}>
               <button className="btn btn-big btn-filled btn-caps" onClick={focusResume}>Back to it</button>
@@ -68,6 +76,9 @@ export function Work() {
             </div>
           </>
         )}
+        <Sheet open={editing && !!focus} onClose={() => setEditing(false)} title="What is this block?">
+          {focus && <TagEditor initial={focus} onSave={setFocusTag} onClose={() => setEditing(false)} />}
+        </Sheet>
       </section>
 
       <TasksPanel />
@@ -85,6 +96,7 @@ export function Work() {
           </div>
           <div className="row between"><Label>Lost focus</Label><span className="mono strong">{st.lost}×</span></div>
           <Timeline blocks={todays} focus={focus ?? null} now={now} />
+          <BlockList blocks={todays} />
         </section>
 
         <section className="panel stack" style={{ gap: 16 }}>
@@ -99,7 +111,104 @@ export function Work() {
           </div>
         </section>
       </div>
+
+      <TimeSplit blocks={blocks} today={today} />
     </div>
+  )
+}
+
+/** Label of the running block, tap to change; "Task done" when it's linked to an open task. */
+function RunningTag({ onEdit }: { onEdit: () => void }) {
+  const focus = useStore((s) => s.appState?.focus)
+  const task = useStore((s) => s.appState?.settings?.tasks?.find((t) => t.id === focus?.task))
+  if (!focus) return null
+  const label = tagLabel(focus)
+  return (
+    <div className="row wrap" style={{ gap: 8, justifyContent: 'center' }}>
+      <button className={`chip${label ? ' on' : ' dashed'}`} style={{ maxWidth: '100%', overflowWrap: 'anywhere' }} onClick={onEdit}>
+        {label || 'Add what you’re working on'}
+      </button>
+      {task && !task.done_at && <button className="chip dashed" onClick={() => toggleTask(task.id)}><Icon name="circlecheck" size={14} glow={false} /> Task done</button>}
+    </div>
+  )
+}
+
+/** Today's focus blocks with their labels; tap one to label it afterwards. */
+function BlockList({ blocks }: { blocks: FocusBlock[] }) {
+  const settings = useStore((s) => s.appState?.settings)
+  const [edit, setEdit] = useState<FocusBlock | null>(null)
+  const focusBlocks = blocks.filter((b) => b.block_type === 'focus')
+  if (!focusBlocks.length) return null
+  return (
+    <>
+      <div className="list">
+        {focusBlocks.map((b) => {
+          const label = tagLabel(tagOf(settings, b.id))
+          return (
+            <button key={b.id} className="li" style={{ gap: 10, width: '100%', textAlign: 'left', background: 'none', color: 'inherit', font: 'inherit' }} onClick={() => setEdit(b)}>
+              <span className="mono small" style={{ flex: 'none' }}>{fmtClock(localMinutes(b.started_at))}</span>
+              <span className={`grow${label ? '' : ' dim'}`} style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{label || 'Tap to label'}</span>
+              <span className="mono small strong" style={{ flex: 'none' }}>{fmtDur(minutesBetween(b.started_at, b.ended_at))}</span>
+            </button>
+          )
+        })}
+      </div>
+      <Sheet open={!!edit} onClose={() => setEdit(null)} title="What was this block?">
+        {edit && (
+          <TagEditor key={edit.id} initial={tagOf(settings, edit.id)} onSave={(t) => tagBlock(edit.id, t)} onClose={() => setEdit(null)}>
+            <span className="small">{fmtClock(localMinutes(edit.started_at))}–{fmtClock(localMinutes(edit.ended_at))} · {fmtDur(minutesBetween(edit.started_at, edit.ended_at))}</span>
+          </TagEditor>
+        )}
+      </Sheet>
+    </>
+  )
+}
+
+/** Where focus time goes: per category and per thing, this week or the last 4 weeks. */
+function TimeSplit({ blocks, today }: { blocks: FocusBlock[]; today: string }) {
+  const settings = useStore((s) => s.appState?.settings)
+  const [range, setRange] = useState<'week' | 'month'>('week')
+  const from = range === 'week' ? weekStart(today) : addDays(weekStart(today), -21)
+  const inRange = blocks.filter((b) => b.local_date >= from && b.local_date <= today)
+  const cats = byCategory(inRange, settings)
+  const things = byWhat(inRange, settings).slice(0, 6)
+  const total = cats.reduce((a, c) => a + c.min, 0)
+  return (
+    <section className="panel stack" style={{ gap: 16 }}>
+      <div className="row between">
+        <Label>Where your time goes</Label>
+        <div className="row" style={{ gap: 6 }}>
+          <button className={`chip sm${range === 'week' ? ' on' : ''}`} onClick={() => setRange('week')}>This week</button>
+          <button className={`chip sm${range === 'month' ? ' on' : ''}`} onClick={() => setRange('month')}>4 weeks</button>
+        </div>
+      </div>
+      {!total ? <div className="empty">No focus yet. Pick a category when you start the timer.</div> : (
+        <div className="stack" style={{ gap: 12 }}>
+          {cats.map((c) => (
+            <div key={c.name} className="stack" style={{ gap: 6 }}>
+              <div className="row between">
+                <span className={c.name === 'No category' ? 'dim' : 'strong'}>{c.name}</span>
+                <span className="mono small">{fmtDur(c.min)} · {Math.round((c.min / total) * 100)}%</span>
+              </div>
+              <Bar value={c.min} max={total} thin />
+            </div>
+          ))}
+        </div>
+      )}
+      {things.length > 0 && (
+        <>
+          <Label>Most time on</Label>
+          <div className="list">
+            {things.map((t) => (
+              <div key={t.name} className="li" style={{ gap: 10 }}>
+                <span className="grow" style={{ minWidth: 0, overflowWrap: 'anywhere' }}>{t.name}</span>
+                <span className="mono small" style={{ flex: 'none' }}>{fmtDur(t.min)} · {t.blocks}×</span>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+    </section>
   )
 }
 

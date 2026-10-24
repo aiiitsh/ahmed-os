@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
 import { useStore } from '../lib/store'
 import { supabase } from '../lib/supabase'
-import { patchSettings, setPin } from '../lib/actions'
+import { patchSettings, setCategories, setPin } from '../lib/actions'
+import { categoriesOf } from '../lib/focustags'
 import { toast } from '../lib/toast'
-import { Label, Toggle } from '../components/ui'
+import { DeleteX, Label, Toggle } from '../components/ui'
 import { download } from './Review'
 
 const TABLES = ['app_state', 'exercise_targets', 'workouts', 'workout_sets', 'sleep_segments', 'sleep', 'focus_blocks', 'quran_juz', 'logs', 'habit_entries', 'weekly_reviews']
@@ -83,6 +84,8 @@ export function Settings() {
         </div>
       </section>
 
+      <FocusCategories />
+
       <section className="panel stack" style={{ gap: 14 }}>
         <Label>Learn</Label>
         <div className="row between">
@@ -111,6 +114,37 @@ export function Settings() {
   )
 }
 
+/** The categories offered when starting focus. Removing one keeps the time already logged under it. */
+function FocusCategories() {
+  const settings = useStore((s) => s.appState?.settings)
+  const cats = categoriesOf(settings)
+  const [name, setName] = useState('')
+  const add = () => {
+    const n = name.trim()
+    if (n && !cats.some((c) => c.toLowerCase() === n.toLowerCase())) setCategories([...cats, n])
+    setName('')
+  }
+  return (
+    <section className="panel stack" style={{ gap: 14 }}>
+      <Label>Focus categories</Label>
+      <div className="list">
+        {cats.map((c, i) => (
+          <div key={c} className="li" style={{ gap: 8 }}>
+            <span className="grow">{c}</span>
+            {i > 0 && <button className="btn btn-ghost btn-sq" style={{ minHeight: 36, width: 36 }} aria-label={`Move ${c} up`}
+              onClick={() => setCategories([...cats.slice(0, i - 1), c, cats[i - 1], ...cats.slice(i + 1)])}>↑</button>}
+            <DeleteX onDelete={() => setCategories(cats.filter((x) => x !== c))} />
+          </div>
+        ))}
+      </div>
+      <form className="row" style={{ gap: 8 }} onSubmit={(e) => { e.preventDefault(); add() }}>
+        <input className="field grow" placeholder="New category" value={name} onChange={(e) => setName(e.target.value)} enterKeyHint="done" />
+        <button className="btn btn-filled" type="submit" disabled={!name.trim()}>Add</button>
+      </form>
+      <p className="small muted">Removing a category keeps the time already logged under it.</p>
+    </section>
+  )
+}
 
 /** Screen facts for layout debugging (send a screenshot of this). */
 function Diagnostics() {

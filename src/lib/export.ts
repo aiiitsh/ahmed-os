@@ -8,6 +8,7 @@ import { describeLog } from './describe'
 import { swimPlanFrom } from './plan'
 import { WEEKDAYS, planFor, slotStatus, slotText, unplanned } from './weekplan'
 import { doneBetween, dueLabel, isOpen, sortTasks } from './tasks'
+import { byCategory, byWhat, tagOf } from './focustags'
 
 export function weightChanges(data: Data, w: Pick<WeekStats, 'sets' | 'workouts'>) {
   const out: { key: string; name: string; from: string; to: string; dir: number }[] = []
@@ -56,9 +57,10 @@ const workoutMinutes = (wo: { started_at: string; ended_at: string | null }) =>
 
 export function buildJson(data: Data, start: string) {
   const { w, ins, coach, changes } = buildWeek(data, start)
+  const st = data.appState?.settings
   const focusByDay = w.days.map((d) => {
     const bl = w.focus.filter((b) => b.local_date === d && b.block_type === 'focus')
-    return { date: d, minutes: Math.round(bl.reduce((a, b) => a + minutesBetween(b.started_at, b.ended_at), 0)), blocks: bl.map((b) => ({ start: hhmm(b.started_at), min: Math.round(minutesBetween(b.started_at, b.ended_at)), end_reason: b.end_reason })) }
+    return { date: d, minutes: Math.round(bl.reduce((a, b) => a + minutesBetween(b.started_at, b.ended_at), 0)), blocks: bl.map((b) => ({ start: hhmm(b.started_at), min: Math.round(minutesBetween(b.started_at, b.ended_at)), end_reason: b.end_reason, category: tagOf(st, b.id).cat ?? null, what: tagOf(st, b.id).what ?? null })) }
   })
   return {
     app: 'Ahmed OS',
@@ -87,6 +89,7 @@ export function buildJson(data: Data, start: string) {
       total_hours: +(w.fo.total / 60).toFixed(2), blocks: w.fo.blocks, longest_min: Math.round(w.fo.longest),
       average_min: Math.round(w.fo.average), rest_min: Math.round(w.fo.rest), lost_focus: w.fo.lost, target_hours: GOALS.focusHours,
       by_day: focusByDay,
+      by_category: Object.fromEntries(byCategory(w.focus, st).map((c) => [c.name, Math.round(c.min)])),
     },
     quran: w.quran.map((e) => ({ date: e.local_date, surah: e.surah, name: surahName(e.surah), kind: e.kind })),
     french: { minutes: w.frenchMin, days: w.frenchDays, unit: data.appState?.french_unit, units_finished: w.unitsFinished },
@@ -180,12 +183,13 @@ export function buildMonthText(data: Data, today = localDate()): string {
   const now = weekStats(data, cur)
   const soFar = daysBetween(cur, today) + 1
   const last = W[3]
+  const settings = data.appState?.settings
   const before = W.slice(0, 3)
   const L: string[] = []
   const h = (t: string) => L.push('', `## ${t}`)
 
   L.push(`AHMED OS · MONTH ${fmtDay(starts[0])} → ${fmtDay(addDays(cur, -1))} + this week so far (Sat–Fri weeks, America/Toronto, weights in lb)`)
-  L.push('Please compare my last full week with the weeks before it, point out trends (good and bad), and help me plan the coming week Sat–Fri: which days gym (A/B/C), cardio and rest, weights to raise or lower, APT/posture work (no glute growth), and 3 concrete tips to focus longer.')
+  L.push('Please compare my last full week with the weeks before it, point out trends (good and bad), and help me plan the coming week Sat–Fri: which days gym (A/B/C), cardio and rest, weights to raise or lower, APT/posture work (no glute growth), 3 concrete tips to focus longer, and how my focus time splits across categories (Afflo, Study, Planning, Farq…) and what to shift to be more productive.')
   L.push('Program: A = muscle-up + arms, B = planche + core & neck, C = hamstrings, core & posture. Goals: 3–4 sessions, core 14–24 sets, arms 12–20, posture routine 5+ days, focus 15 h.')
 
   // Week by week table
@@ -279,7 +283,12 @@ export function buildMonthText(data: Data, today = localDate()): string {
   for (const w of [...W, now]) {
     const byDay = w.days.map((d) => w.focus.filter((b) => b.local_date === d && b.block_type === 'focus').reduce((a, b) => a + minutesBetween(b.started_at, b.ended_at), 0))
     L.push(`- Week of ${fmtDay(w.start)}: ${fmtDur(w.fo.total)} · ${w.fo.blocks} blocks · longest ${Math.round(w.fo.longest)}m · avg ${Math.round(w.fo.average)}m · lost ${w.fo.lost}× · by day ${byDay.map((m) => Math.round(m)).join('/')} min`)
+    const cats = byCategory(w.focus, settings)
+    if (cats.length) L.push(`  by category: ${cats.map((c) => `${c.name} ${fmtDur(c.min)}`).join(' · ')}`)
   }
+  const monthFocus = [...W, now].flatMap((w) => w.focus)
+  const things = byWhat(monthFocus, settings).slice(0, 10)
+  if (things.length) L.push(`Most time on (5 weeks): ${things.map((t) => `${t.name} ${fmtDur(t.min)}`).join(' · ')}`)
   const coach = focusCoach(last, W[2])
   if (coach.length) { L.push('App suggestions (last full week):'); for (const c of coach) L.push(`  - ${c.text}`) }
 

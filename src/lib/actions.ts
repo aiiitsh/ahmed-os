@@ -7,7 +7,8 @@ import { nextSwim, progress, type SwimDone } from './progression'
 import { restAfterSet, restBetween, unlockAudio } from './rest'
 import { surahLatin } from '../data/surahs'
 import { swimPlanFrom } from './plan'
-import type { ActiveSession, DayCode, Feel, FocusBlock, HabitEntry, Log, LogType, PlanSlot, QuranEvent, StepState, Target, Task, WeekPlan, Workout, WorkoutSet } from './types'
+import { cleanTag, tagLabel } from './focustags'
+import type { ActiveSession, AppState, DayCode, Feel, FocusBlock, FocusTag, HabitEntry, Log, LogType, PlanSlot, QuranEvent, StepState, Target, Task, WeekPlan, Workout, WorkoutSet } from './types'
 
 // ---------- generic logs ----------
 
@@ -132,6 +133,9 @@ export function finishFrenchUnit() {
 const MIN_FOCUS_MIN = 1
 const MAX_BREAK_MIN = 180
 
+/** The label carried from one focus state to the next (focus → break → focus keeps it). */
+const tagFrom = (f: FocusTag | null | undefined): FocusTag => ({ cat: f?.cat ?? null, what: f?.what ?? null, task: f?.task ?? null })
+
 function closeBlock(reason: FocusBlock['end_reason'], endAt = nowIso()): FocusBlock | null {
   const f = get().appState?.focus
   if (!f) return null
@@ -146,6 +150,14 @@ function closeBlock(reason: FocusBlock['end_reason'], endAt = nowIso()): FocusBl
   return b
 }
 
+/** Settings patch that stores the running label on a just-closed focus block. */
+function tagPatch(prev: FocusTag | null | undefined, block: FocusBlock | null): Partial<AppState> {
+  const app = get().appState
+  const tag = prev ? cleanTag(prev) : null
+  if (!app || !block || block.block_type !== 'focus' || !tag) return {}
+  return { settings: { ...app.settings, focus_tags: { ...app.settings.focus_tags, [block.id]: tag } } }
+}
+
 function undoFocus(prevFocus: any, block: FocusBlock | null) {
   return () => {
     if (block) removeRow('focus', block.id)
@@ -153,18 +165,53 @@ function undoFocus(prevFocus: any, block: FocusBlock | null) {
   }
 }
 
-export function startFocus() {
+export function startFocus(tag: FocusTag = {}) {
   const prev = get().appState?.focus ?? null
   const block = prev ? closeBlock(prev.mode === 'focus' ? 'stop' : 'resume') : null
-  patchApp({ focus: { mode: 'focus', kind: 'work', started_at: nowIso() } })
-  toast('Focus started', undoFocus(prev, block))
+  patchApp({ focus: { mode: 'focus', kind: 'work', started_at: nowIso(), ...tagFrom(tag) }, ...tagPatch(prev, block) })
+  const label = tagLabel(tag)
+  toast(label ? `Focus · ${label}` : 'Focus started', undoFocus(prev, block))
+}
+
+/** Change what the running block is about. */
+export function setFocusTag(tag: FocusTag) {
+  const f = get().appState?.focus
+  if (f) patchApp({ focus: { ...f, ...tagFrom(tag) } })
+}
+
+/** Label a finished block (or clear its label). */
+export function tagBlock(id: string, tag: FocusTag) {
+  const app = get().appState
+  if (!app) return
+  const tags = { ...app.settings.focus_tags }
+  const t = cleanTag(tag)
+  if (t) tags[id] = t
+  else delete tags[id]
+  patchApp({ settings: { ...app.settings, focus_tags: tags } })
+}
+
+export function setCategories(list: string[]) {
+  patchSettings({ focus_categories: list })
+}
+
+/** One-off: everything logged on 24 Oct 2026 (before categories existed) was study. */
+export function backfillStudyOct24() {
+  const app = get().appState
+  if (!app || app.settings.focus_backfill_1024) return
+  const tags = { ...app.settings.focus_tags }
+  for (const b of get().focus) {
+    if (b.local_date === '2026-10-24' && b.block_type === 'focus' && !tags[b.id]?.cat) tags[b.id] = { ...tags[b.id], cat: 'Study' }
+  }
+  const f = app.focus
+  const focus = f && localDate(f.started_at) === '2026-10-24' && !f.cat ? { ...f, cat: 'Study' } : f
+  patchApp({ focus, settings: { ...app.settings, focus_tags: tags, focus_backfill_1024: true } })
 }
 
 export function focusBreak(reason: 'break' | 'lost_focus') {
   const prev = get().appState?.focus
   if (!prev || prev.mode !== 'focus') return
   const block = closeBlock(reason)
-  patchApp({ focus: { mode: 'break', kind: 'work', started_at: nowIso() } })
+  patchApp({ focus: { mode: 'break', kind: 'work', started_at: nowIso(), ...tagFrom(prev) }, ...tagPatch(prev, block) })
   toast(reason === 'break' ? 'Break' : 'Lost focus · resting', undoFocus(prev, block))
 }
 
@@ -172,7 +219,7 @@ export function focusResume() {
   const prev = get().appState?.focus
   if (!prev || prev.mode !== 'break') return
   const block = closeBlock('resume')
-  patchApp({ focus: { mode: 'focus', kind: 'work', started_at: nowIso() } })
+  patchApp({ focus: { mode: 'focus', kind: 'work', started_at: nowIso(), ...tagFrom(prev) } })
   toast('Back to it', undoFocus(prev, block))
 }
 
@@ -182,7 +229,7 @@ export function focusStop(afterMin?: number) {
   if (!prev) return
   const endAt = afterMin != null ? new Date(new Date(prev.started_at).getTime() + afterMin * 60000).toISOString() : nowIso()
   const block = closeBlock('stop', endAt)
-  patchApp({ focus: null })
+  patchApp({ focus: null, ...tagPatch(prev, block) })
   const mins = block && block.block_type === 'focus' ? minutesBetween(block.started_at, block.ended_at) : 0
   toast(mins ? `Saved · ${fmtDur(mins)} focus` : 'Stopped', undoFocus(prev, block))
 }

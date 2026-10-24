@@ -1,3 +1,4 @@
+import { byCategory, byWhat, cleanTag } from './focustags'
 import { describe, expect, it } from 'vitest'
 import { progress, nextSwim } from './progression'
 import { addDays, localDate, weekStart, dow } from './time'
@@ -268,5 +269,28 @@ describe('tasks', () => {
   it('done tasks leave the list; undated sort last', () => {
     expect(tasksForToday([t('d', '2026-10-24', { done_at: '2026-10-24T15:00:00Z' })], '2026-10-24')).toHaveLength(0)
     expect(sortTasks([t('n', null), t('x', '2026-11-01')]).map((x) => x.id)).toEqual(['x', 'n'])
+  })
+})
+
+describe('focus categories', () => {
+  const blk = (id: string, start: string, end: string, type: 'focus' | 'break' = 'focus') =>
+    ({ id, user_id: 'u', local_date: '2026-10-24', block_type: type, kind: 'work', started_at: start, ended_at: end, end_reason: 'stop' }) as const
+  const blocks = [
+    blk('a', '2026-10-24T14:00:00Z', '2026-10-24T15:00:00Z'),
+    blk('b', '2026-10-24T15:00:00Z', '2026-10-24T15:30:00Z', 'break'),
+    blk('c', '2026-10-24T15:30:00Z', '2026-10-24T16:00:00Z'),
+    blk('d', '2026-10-24T16:00:00Z', '2026-10-24T16:20:00Z'),
+  ]
+  const settings = { focus_tags: { a: { cat: 'Study', what: 'Physics' }, c: { cat: 'Afflo', what: 'physics' } } }
+
+  it('splits focus minutes by category; breaks and untagged handled', () => {
+    expect(byCategory([...blocks], settings).map((c) => [c.name, Math.round(c.min)])).toEqual([['Study', 60], ['Afflo', 30], ['No category', 20]])
+  })
+  it('groups what you worked on, ignoring case', () => {
+    expect(byWhat([...blocks], settings).map((c) => [c.name, Math.round(c.min), c.blocks])).toEqual([['Physics', 90, 2]])
+  })
+  it('drops empty labels', () => {
+    expect(cleanTag({ cat: null, what: '  ', task: null })).toBeNull()
+    expect(cleanTag({ cat: 'Farq', what: ' plan ' })).toEqual({ cat: 'Farq', what: 'plan' })
   })
 })

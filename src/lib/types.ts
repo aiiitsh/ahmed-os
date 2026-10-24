@@ -10,7 +10,17 @@ export interface Skill {
   active: boolean
 }
 
-export interface FocusState {
+/** What a focus block was about. Every part is optional. */
+export interface FocusTag {
+  /** category name, e.g. Study */
+  cat?: string | null
+  /** what you worked on, free text or a task title */
+  what?: string | null
+  /** linked to-do task */
+  task?: string | null
+}
+
+export interface FocusState extends FocusTag {
   mode: 'focus' | 'break'
   kind: 'work' | 'study'
   started_at: string
@@ -61,6 +71,12 @@ export interface Settings {
   week_plans?: Record<string, WeekPlan>
   /** To-do list. */
   tasks?: Task[]
+  /** Focus categories (Afflo, Study, ...). */
+  focus_categories?: string[]
+  /** Labels for focus blocks, by block id. */
+  focus_tags?: Record<string, FocusTag>
+  /** one-off: blocks logged on 24 Oct 2026 were tagged Study */
+  focus_backfill_1024?: boolean
 }
 
 export interface Task {
