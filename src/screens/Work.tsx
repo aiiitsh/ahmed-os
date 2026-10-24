@@ -8,6 +8,7 @@ import { Bar, Label, useNow } from '../components/ui'
 import { Icon } from '../components/Icon'
 import { Stat } from './Learn'
 import type { FocusBlock } from '../lib/types'
+import { TasksPanel } from '../components/Tasks'
 
 export function Work() {
   const focus = useStore((s) => s.appState?.focus)
@@ -68,6 +69,8 @@ export function Work() {
           </>
         )}
       </section>
+
+      <TasksPanel />
 
       <div className="cols c2">
         <section className="panel stack" style={{ gap: 16 }}>

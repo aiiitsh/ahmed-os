@@ -7,6 +7,7 @@ import { addDays, daysBetween, fmtDay, fmtDur, hhmm, localDate, minutesBetween, 
 import { describeLog } from './describe'
 import { swimPlanFrom } from './plan'
 import { WEEKDAYS, planFor, slotStatus, slotText, unplanned } from './weekplan'
+import { doneBetween, dueLabel, isOpen, sortTasks } from './tasks'
 
 export function weightChanges(data: Data, w: Pick<WeekStats, 'sets' | 'workouts'>) {
   const out: { key: string; name: string; from: string; to: string; dir: number }[] = []
@@ -281,6 +282,17 @@ export function buildMonthText(data: Data, today = localDate()): string {
   }
   const coach = focusCoach(last, W[2])
   if (coach.length) { L.push('App suggestions (last full week):'); for (const c of coach) L.push(`  - ${c.text}`) }
+
+  // Tasks
+  const tasks = data.appState?.settings?.tasks ?? []
+  if (tasks.length) {
+    h('Tasks')
+    L.push(`Done per week: ${[...W, now].map((w) => doneBetween(tasks, w.start, w.end).length).join(' · ')} (last = this week so far)`)
+    const open = sortTasks(tasks.filter(isOpen))
+    const late = open.filter((t) => t.due && t.due < today)
+    L.push(`Open: ${open.length}${late.length ? ` · ${late.length} late` : ''}`)
+    for (const t of open.slice(0, 20)) L.push(`  - ${t.title}${t.due ? ` (${dueLabel(t.due, today)})` : ''}`)
+  }
 
   // Learn
   h('Quran & French (no targets)')

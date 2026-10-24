@@ -12,6 +12,7 @@ import { openSheet } from '../components/QuickLog'
 import { InstallHint } from '../components/InstallHint'
 import { dayPlan, tomorrowPreview, trainingPlan, type PlanItem } from '../lib/plan'
 import { WeekPlanPanel } from '../components/WeekPlan'
+import { TodayTasks, useTodayTaskCount } from '../components/Tasks'
 import { SLOT_ICON, SLOT_LABEL } from '../lib/weekplan'
 
 export function Home() {
@@ -179,12 +180,15 @@ function TodayPlan() {
   const items = useMemo(() => dayPlan(data), [data])
   const core = items.filter((i) => !i.optional)
   const extra = items.filter((i) => i.optional)
-  const done = core.filter((i) => i.done).length
+  const tasks = useTodayTaskCount()
+  const done = core.filter((i) => i.done).length + tasks.done
+  const total = core.length + tasks.open + tasks.done
   const byDone = (xs: PlanItem[]) => [...xs].sort((a, b) => Number(a.done) - Number(b.done))
   return (
     <section className="panel">
-      <div className="panel-head"><Label>Today's plan</Label><span className="label">{done}/{core.length} done</span></div>
+      <div className="panel-head"><Label>Today's plan</Label><span className="label">{done}/{total} done</span></div>
       <div className="list">{byDone(core).map((it) => <PlanRow key={it.key} it={it} />)}</div>
+      <TodayTasks />
       <div className="label" style={{ margin: '14px 0 4px' }}>If you feel like it</div>
       <div className="list">{byDone(extra).map((it) => <PlanRow key={it.key} it={it} />)}</div>
     </section>

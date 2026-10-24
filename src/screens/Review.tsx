@@ -39,10 +39,6 @@ export function Review() {
     }
     saveReview()
   }
-  const json = () => {
-    download(`ahmed-os-week-${start}.json`, JSON.stringify(buildJson(data, start), null, 2), 'application/json')
-    saveReview()
-  }
 
   return (
     <div className="page">
@@ -81,8 +77,7 @@ export function Review() {
         <section className="panel stack" style={{ gap: 12 }}>
           <Label>Export for Claude</Label>
           <button className="btn btn-filled btn-big" onClick={copy}><Icon name="copy" size={20} /> Copy month summary</button>
-          <span className="small muted" style={{ textAlign: 'center' }}>Last 4 weeks side by side + this week so far, to plan next week.</span>
-          <button className="btn btn-big" onClick={json}><Icon name="download" size={20} /> Download JSON</button>
+          <span className="small muted" style={{ textAlign: 'center' }}>Always the last 4 weeks + this week so far, whichever week is picked above. Paste it to Claude to plan next week.</span>
           <Notes key={start} initial={thisReview?.claude_notes ?? ''} onSave={(n) => { saveReview(n || null); toast("Claude's notes saved") }} />
         </section>
       </div>
@@ -154,7 +149,7 @@ function Notes({ initial, onSave }: { initial: string; onSave: (n: string) => vo
   useEffect(() => setV(initial), [initial])
   return (
     <div className="stack" style={{ gap: 8, marginTop: 6 }}>
-      <Label>Claude's notes (shown next week)</Label>
+      <Label>Claude's reply · pinned at the top of Review next week</Label>
       <textarea className="field" placeholder="Paste Claude's feedback here" value={v} onChange={(e) => setV(e.target.value)} />
       <button className="btn btn-outline" disabled={v === initial} onClick={() => onSave(v)}>Save notes</button>
     </div>

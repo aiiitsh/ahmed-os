@@ -9,7 +9,8 @@ import { restAfterSet, restBetween } from './rest'
 import { kgToLb } from './format'
 import type { Data } from './store'
 import { DAYS, EX } from '../data/program'
-import type { HabitEntry, Workout, WorkoutSet } from './types'
+import type { HabitEntry, Task, Workout, WorkoutSet } from './types'
+import { sortTasks, tasksForToday } from './tasks'
 
 describe('progression (7.5)', () => {
   const curl = EX.db_curl // 10–12, step 5 lb
@@ -250,5 +251,22 @@ describe('weekly plan', () => {
     const p = trainingPlan(data, '2026-10-25')
     expect(p.day).not.toBe('C')
     expect(p.why).toMatch(/Plan said Day C/)
+  })
+})
+
+describe('tasks', () => {
+  const t = (id: string, due: string | null, extra: Partial<Task> = {}): Task => ({ id, title: id, due, created_at: '2026-10-20T12:00:00Z', ...extra })
+  it('today shows tasks due today, tomorrow or late; not later or undated', () => {
+    const list = [t('late', '2026-10-22'), t('today', '2026-10-24'), t('tmrw', '2026-10-25'), t('later', '2026-10-28'), t('nodate', null)]
+    expect(tasksForToday(list, '2026-10-24').map((x) => x.id)).toEqual(['late', 'today', 'tmrw'])
+  })
+  it('moved to tomorrow hides it today and shows it tomorrow', () => {
+    const list = [t('a', '2026-10-25', { plan_on: '2026-10-25' })]
+    expect(tasksForToday(list, '2026-10-24')).toHaveLength(0)
+    expect(tasksForToday(list, '2026-10-25')).toHaveLength(1)
+  })
+  it('done tasks leave the list; undated sort last', () => {
+    expect(tasksForToday([t('d', '2026-10-24', { done_at: '2026-10-24T15:00:00Z' })], '2026-10-24')).toHaveLength(0)
+    expect(sortTasks([t('n', null), t('x', '2026-11-01')]).map((x) => x.id)).toEqual(['x', 'n'])
   })
 })

@@ -1,13 +1,13 @@
 // Every user action. Each one updates local state, writes, and (where it makes sense) offers Undo.
 import { get, newId, patchApp, putRows, putTarget, removeRow, set, uid } from './store'
 import { toast } from './toast'
-import { localDate, minutesBetween, nowIso, fmtDur } from './time'
+import { addDays, localDate, minutesBetween, nowIso, fmtDur } from './time'
 import { CARDIO, DAYS, EX, isSecs, nextDay, type Sport } from '../data/program'
 import { nextSwim, progress, type SwimDone } from './progression'
 import { restAfterSet, restBetween, unlockAudio } from './rest'
 import { surahLatin } from '../data/surahs'
 import { swimPlanFrom } from './plan'
-import type { ActiveSession, DayCode, Feel, FocusBlock, HabitEntry, Log, LogType, PlanSlot, QuranEvent, StepState, Target, WeekPlan, Workout, WorkoutSet } from './types'
+import type { ActiveSession, DayCode, Feel, FocusBlock, HabitEntry, Log, LogType, PlanSlot, QuranEvent, StepState, Target, Task, WeekPlan, Workout, WorkoutSet } from './types'
 
 // ---------- generic logs ----------
 
@@ -452,4 +452,47 @@ export function setPlanSlot(ws: string, idx: number, slot: PlanSlot) {
   const days = plan.days.map((s, i) => (i === idx ? slot : s))
   saveWeekPlan({ ...plan, days })
   toast('Plan updated', () => patchApp({ settings: prevSettings }))
+}
+
+// ---------- tasks ----------
+
+const tasksNow = () => get().appState?.settings.tasks ?? []
+
+function saveTasks(tasks: Task[]) {
+  const app = get().appState
+  if (!app) return
+  // finished tasks are kept 90 days for the stats, then dropped
+  const cutoff = addDays(localDate(), -90)
+  patchApp({ settings: { ...app.settings, tasks: tasks.filter((t) => !t.done_at || localDate(t.done_at) >= cutoff) } })
+}
+
+export function addTask(title: string, due: string | null) {
+  const t = title.trim()
+  if (!t) return
+  saveTasks([...tasksNow(), { id: newId(), title: t, due, created_at: nowIso() }])
+}
+
+export function updateTask(id: string, patch: Partial<Task>) {
+  saveTasks(tasksNow().map((t) => (t.id === id ? { ...t, ...patch } : t)))
+}
+
+export function toggleTask(id: string) {
+  const t = tasksNow().find((x) => x.id === id)
+  if (t) updateTask(id, { done_at: t.done_at ? null : nowIso() })
+}
+
+export function deleteTask(id: string) {
+  const prev = tasksNow()
+  saveTasks(prev.filter((t) => t.id !== id))
+  toast('Task deleted', () => saveTasks(prev))
+}
+
+/** Not needed today: hide it until tomorrow (and push a deadline that's already here). */
+export function moveTaskToTomorrow(id: string) {
+  const prev = tasksNow()
+  const t = prev.find((x) => x.id === id)
+  if (!t) return
+  const tomorrow = addDays(localDate(), 1)
+  updateTask(id, { plan_on: tomorrow, due: t.due && t.due < tomorrow ? tomorrow : t.due })
+  toast('Moved to tomorrow', () => saveTasks(prev))
 }

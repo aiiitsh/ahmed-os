@@ -59,6 +59,19 @@ export interface Settings {
   streak_start?: string
   /** Weekly plans by week start (Saturday). */
   week_plans?: Record<string, WeekPlan>
+  /** To-do list. */
+  tasks?: Task[]
+}
+
+export interface Task {
+  id: string
+  title: string
+  /** deadline (local date), optional */
+  due?: string | null
+  /** hidden from Today's plan until this day ("Move to tomorrow") */
+  plan_on?: string | null
+  done_at?: string | null
+  created_at: string
 }
 
 export type SlotKind = 'gym' | 'swim' | 'run' | 'hike' | 'squash' | 'cardio' | 'rest'
