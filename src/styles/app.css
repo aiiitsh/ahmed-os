@@ -328,7 +328,7 @@ input[type=date].field { color-scheme: dark; }
 .life-sticky.orange ul { display: flex; flex-direction: column; gap: 6px; font-size: 19px; }
 .life-sticky.orange li { padding-left: 18px; position: relative; }
 .life-sticky.orange li::before { content: ''; position: absolute; left: 2px; top: .6em; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
-.life-sticky.yellow { background: #ffd966; color: #6a2bd9; font-weight: 700; font-size: 15px; line-height: 1.7; }
+.life-sticky.yellow { background: #ffd966; color: #6a2bd9; font-weight: 700; font-size: 16px; line-height: 1.7; border-radius: 6px; padding: 14px 16px; box-shadow: 0 10px 24px rgba(0,0,0,.45); }
 .life-sticky.yellow ul { display: flex; flex-direction: column; gap: 4px; }
 
 .life-quran { border-radius: 22px; padding: 18px; background: #0f2a2b; border: 1px solid #1f4d4f; display: flex; flex-direction: column; gap: 16px; }
@@ -355,7 +355,7 @@ input[type=date].field { color-scheme: dark; }
   background: radial-gradient(rgba(255,255,255,.09) 1px, transparent 1.2px) 0 0 / 18px 18px, #0b0b0c; }
 .life-board > .row { margin-bottom: 14px; }
 .life-climb { display: flex; justify-content: center; }
-.life-step { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: 'card card' 'sticky photos' 'note note'; gap: 14px 12px; align-items: start; }
+.life-step { display: flex; flex-direction: column; gap: 12px; }
 .life-step.done { opacity: .55; filter: saturate(.6); }
 .life-card { grid-area: card; all: unset; box-sizing: border-box; grid-area: card; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 20px; border-radius: 6px; cursor: pointer;
   background: var(--c); box-shadow: 0 12px 28px rgba(0,0,0,.5); position: relative; }
@@ -368,13 +368,12 @@ input[type=date].field { color-scheme: dark; }
 .life-date { margin-left: auto; }
 .life-here { padding: 5px 8px; border-radius: 999px; background: #fff; color: #000; font-weight: 700; letter-spacing: .1em; box-shadow: 0 0 12px rgba(255,255,255,.7); }
 .life-here.soft { background: rgba(0,0,0,.25); color: inherit; box-shadow: none; }
-.life-step .life-sticky.yellow { grid-area: sticky; }
-.life-step .life-collage { grid-area: photos; }
-.life-note { grid-area: note; margin: 0; text-align: center; color: #d6d6da; font: italic 500 14px/1.4 var(--f-body); }
+.life-note { margin: 0; text-align: center; color: #d6d6da; font: italic 500 14px/1.4 var(--f-body); }
 
-.life-collage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.life-collage { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; padding: 4px 2px; }
 .life-collage.big { grid-template-columns: repeat(3, 1fr); width: 100%; max-width: 420px; }
-.life-collage.one { grid-template-columns: 1fr; }
+.life-step .life-collage.one { grid-template-columns: repeat(3, 1fr); }
+.life-hero .life-collage.one { grid-template-columns: 1fr; }
 .life-collage.big.one { width: 62%; max-width: 280px; }
 .life-photo { padding: 4px 4px 12px; background: #fff; border-radius: 3px; box-shadow: 0 8px 18px rgba(0,0,0,.5); transition: transform .2s; }
 .life-photo:active { transform: scale(.96); }
@@ -396,8 +395,11 @@ input[type=date].field { color-scheme: dark; }
 @media (min-width: 900px) {
   .life-duo { grid-template-columns: 1fr 1fr; align-items: start; }
   .life-board { padding: 26px 30px 30px; }
-  .life-step { grid-template-columns: minmax(0, 1fr) 240px 360px; grid-template-areas: 'photos sticky card' 'note sticky card'; gap: 10px 18px; }
-  .life-step .life-sticky.yellow { margin-top: 18px; }
+  .life-step { display: grid; grid-template-columns: minmax(0, 1fr) 260px 380px; grid-template-areas: 'photos sticky card' 'note note card'; gap: 12px 18px; align-items: stretch; }
+  .life-step > .life-card { grid-area: card; }
+  .life-step > .life-sticky { grid-area: sticky; }
+  .life-step > .life-collage { grid-area: photos; align-content: start; }
+  .life-step > .life-note { grid-area: note; text-align: left; }
   .life-collage { grid-template-columns: repeat(3, 1fr); }
   .life-hero { padding: 30px; }
 }

@@ -13,7 +13,7 @@ import { Icon } from '../components/Icon'
 
 const usePlan = () => useStore((s) => s.appState?.settings?.life_plan)
 const pad = (n: number) => String(n).padStart(2, '0')
-const TILT = [-3, 2.2, -1.4, 2.8, -2.2, 1.6]
+const TILT = [-1.5, 1.2, -0.8, 1.5, -1.2, 0.9]
 const SWATCHES = ['#1e1e1e', '#f24822', '#ffc943', '#14ae5c', '#0d99ff', '#9747ff', '#ff24bd', '#00b5ce']
 
 /** Card text colour on a step colour. */
@@ -200,7 +200,7 @@ function Board({ plan, onEdit, onView }: { plan: LifePlan; onEdit: (id: string) 
                 <ul className="ar">{lines(s.text).map((l, j) => <li key={j}>{l}</li>)}</ul>
               </button>
               {s.details && (
-                <div className="life-sticky yellow ar" style={{ rotate: `${k % 2 ? 1.2 : -1.2}deg` }}>
+                <div className="life-sticky yellow ar">
                   <ul>{lines(s.details).map((l, j) => <li key={j}>{l}</li>)}</ul>
                 </div>
               )}
