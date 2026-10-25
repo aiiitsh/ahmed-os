@@ -12,6 +12,7 @@ import type { Data } from './store'
 import { DAYS, EX } from '../data/program'
 import type { HabitEntry, Task, Workout, WorkoutSet } from './types'
 import { sortTasks, tasksForToday } from './tasks'
+import { countdownText, daysToNext, nextStep, parsePlan, stepState, timelinePct } from './life'
 
 describe('progression (7.5)', () => {
   const curl = EX.db_curl // 10–12, step 5 lb
@@ -292,5 +293,37 @@ describe('focus categories', () => {
   it('drops empty labels', () => {
     expect(cleanTag({ cat: null, what: '  ', task: null })).toBeNull()
     expect(cleanTag({ cat: 'Farq', what: ' plan ' })).toEqual({ cat: 'Farq', what: 'plan' })
+  })
+})
+
+describe('life plan', () => {
+  const step = (tag: string, due: string | null) => ({ id: tag, tag, text: '', details: '', due })
+  const plan = { current: 0, steps: [step('Now', '2026-09-20'), step('Next', '2027-08-31'), step('Later', '2036-03-07')] }
+
+  it('counts days to the step after the current one', () => {
+    expect(nextStep(plan)?.tag).toBe('Next')
+    expect(daysToNext(plan, '2027-08-01')).toBe(30)
+    expect(daysToNext({ ...plan, current: 2 }, '2027-08-01')).toBeNull()
+  })
+  it('marks steps done / now / next / later', () => {
+    expect([0, 1, 2].map((i) => stepState({ ...plan, current: 1 }, i))).toEqual(['done', 'now', 'next'])
+  })
+  it('timeline runs from the first to the last dated step', () => {
+    expect(timelinePct(plan, '2026-09-20')).toBe(0)
+    expect(timelinePct(plan, '2040-01-01')).toBe(1)
+  })
+  it('countdown reads in days, months or years', () => {
+    expect(countdownText(10)).toBe('10 days')
+    expect(countdownText(300)).toBe('10 months')
+    expect(countdownText(-3)).toBe('3 days late')
+  })
+  it('parses pasted JSON and rejects junk', () => {
+    let n = 0
+    const p = parsePlan('{"current":9,"steps":[{"tag":"A","text":"نص","due":"2027-08-31"},{"due":"soon"}]}', () => `id${++n}`)
+    expect(p.current).toBe(1)
+    expect(p.steps[0]).toMatchObject({ tag: 'A', text: 'نص', due: '2027-08-31' })
+    expect(p.steps[1]).toMatchObject({ tag: 'Step 2', due: null })
+    expect(() => parsePlan('nope', () => 'x')).toThrow('Not valid JSON')
+    expect(() => parsePlan('{"steps":[]}', () => 'x')).toThrow('No steps found')
   })
 })

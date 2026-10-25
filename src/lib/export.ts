@@ -9,6 +9,7 @@ import { swimPlanFrom } from './plan'
 import { WEEKDAYS, planFor, slotStatus, slotText, unplanned } from './weekplan'
 import { doneBetween, dueLabel, isOpen, sortTasks } from './tasks'
 import { byCategory, byWhat, tagOf } from './focustags'
+import { lifeText } from './life'
 
 export function weightChanges(data: Data, w: Pick<WeekStats, 'sets' | 'workouts'>) {
   const out: { key: string; name: string; from: string; to: string; dir: number }[] = []
@@ -309,6 +310,12 @@ export function buildMonthText(data: Data, today = localDate()): string {
   L.push(quran.length ? quran.map((e) => `- ${fmtDay(e.local_date)} ${e.kind} ${surahLatin(e.surah)} (${e.surah})`).join('\n') : 'No Quran entries.')
   const fr = [...W, now].reduce((a, w) => a + w.frenchMin, 0)
   L.push(fr ? `French: ${fr} min over the month.` : 'No French logged.')
+
+  const life = data.appState?.settings?.life_plan
+  if (life?.steps.length) {
+    h('Life plan')
+    L.push(...lifeText(life, today))
+  }
   return L.join('\n')
 }
 

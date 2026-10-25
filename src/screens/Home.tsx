@@ -14,6 +14,7 @@ import { dayPlan, tomorrowPreview, trainingPlan, type PlanItem } from '../lib/pl
 import { WeekPlanPanel } from '../components/WeekPlan'
 import { TodayTasks, useTodayTaskCount } from '../components/Tasks'
 import { SLOT_ICON, SLOT_LABEL } from '../lib/weekplan'
+import { countdownText, daysToNext, nextStep } from '../lib/life'
 
 export function Home() {
   const now = useNow(1000)
@@ -29,6 +30,7 @@ export function Home() {
         </div>
         <div className="row" style={{ gap: 6 }}>
           {pending > 0 && <span className="sync-dot" title="Syncing…" aria-label="Syncing" />}
+          <a className="btn btn-ghost btn-sq" href="#/life" aria-label="Life plan"><Icon name="life" size={22} /></a>
           <a className="btn btn-ghost btn-sq" href="#/settings" aria-label="Settings"><Icon name="gear" size={22} /></a>
         </div>
       </header>
@@ -47,6 +49,7 @@ export function Home() {
           <WeekPlanPanel />
         </div>
         <div className="col">
+          <LifeCard />
           <Reminders />
           <TodayList />
         </div>
@@ -255,5 +258,23 @@ function TodayList() {
         </div>
       )}
     </section>
+  )
+}
+
+/** Next life step and how far away it is; opens the Life screen. */
+function LifeCard() {
+  const plan = useStore((s) => s.appState?.settings?.life_plan)
+  const next = plan && nextStep(plan)
+  return (
+    <a className="panel row between" href="#/life" style={{ textDecoration: 'none', gap: 12 }}>
+      <div className="stack" style={{ gap: 6, minWidth: 0 }}>
+        <Label>Life plan{next ? ' · next' : ''}</Label>
+        <span className="strong">{next ? next.tag : plan ? 'Final step' : 'Set up your plan'}</span>
+      </div>
+      <div className="row" style={{ gap: 8 }}>
+        {next && plan && <span className="big-num" style={{ fontSize: 18, whiteSpace: 'nowrap' }}>{countdownText(daysToNext(plan))}</span>}
+        <Icon name="chevron" size={18} />
+      </div>
+    </a>
   )
 }

@@ -8,7 +8,7 @@ import { restAfterSet, restBetween, unlockAudio } from './rest'
 import { surahLatin } from '../data/surahs'
 import { swimPlanFrom } from './plan'
 import { cleanTag, tagLabel } from './focustags'
-import type { ActiveSession, AppState, DayCode, Feel, FocusBlock, FocusTag, HabitEntry, Log, LogType, PlanSlot, QuranEvent, StepState, Target, Task, WeekPlan, Workout, WorkoutSet } from './types'
+import type { ActiveSession, AppState, DayCode, Feel, FocusBlock, FocusTag, HabitEntry, LifePlan, LifeStep, Log, LogType, PlanSlot, QuranEvent, StepState, Target, Task, WeekPlan, Workout, WorkoutSet } from './types'
 
 // ---------- generic logs ----------
 
@@ -542,4 +542,26 @@ export function moveTaskToTomorrow(id: string) {
   const tomorrow = addDays(localDate(), 1)
   updateTask(id, { plan_on: tomorrow, due: t.due && t.due < tomorrow ? tomorrow : t.due })
   toast('Moved to tomorrow', () => saveTasks(prev))
+}
+
+// ---------- life plan ----------
+
+export function saveLifePlan(plan: LifePlan | undefined, label?: string) {
+  const app = get().appState
+  if (!app) return
+  const prev = app.settings.life_plan
+  patchApp({ settings: { ...app.settings, life_plan: plan && { ...plan, updated_at: nowIso() } } })
+  if (label) toast(label, () => { const a = get().appState; if (a) patchApp({ settings: { ...a.settings, life_plan: prev } }) })
+}
+
+export function updateLifeStep(id: string, patch: Partial<LifeStep>) {
+  const plan = get().appState?.settings.life_plan
+  if (!plan) return
+  saveLifePlan({ ...plan, steps: plan.steps.map((s) => (s.id === id ? { ...s, ...patch } : s)) }, 'Step saved')
+}
+
+export function setLifeCurrent(i: number) {
+  const plan = get().appState?.settings.life_plan
+  if (!plan || i < 0 || i >= plan.steps.length) return
+  saveLifePlan({ ...plan, current: i }, `You are at step ${i + 1}: ${plan.steps[i].tag}`)
 }
