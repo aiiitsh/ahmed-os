@@ -11,3 +11,6 @@ docs/SPEC.md
 
 # Personal Claude Code settings
 .claude/settings.local.json
+
+# Local-only life plan photos (uploaded to the account, never committed)
+private-life/

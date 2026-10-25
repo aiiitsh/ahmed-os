@@ -298,18 +298,106 @@ input[type=date].field { color-scheme: dark; }
 .heat-rows .c.p span { color: #fff; }
 .heat-rows .c.now { border-color: #fff; }
 
-/* life plan */
+/* life plan: a FigJam-style board */
 .ar-block { margin: 0; white-space: pre-line; text-align: right; font-size: 19px; line-height: 1.8; }
-.ar-block.small-ar { font-size: 16px; line-height: 1.75; }
-.life-reminder { margin: 4px 0 0; text-align: center; font-size: 28px; color: var(--text-strong); text-shadow: var(--glow-text-soft); }
-.ladder { display: flex; flex-direction: column; }
-.rung { border-bottom: 1px solid var(--divider); }
-.rung:last-child { border-bottom: 0; }
-.rung-head { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 10px 0; cursor: pointer; }
-.rung-head:focus-visible { outline: 1px solid var(--text-strong); outline-offset: 2px; border-radius: 8px; }
-.rung-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--tick); flex: none; }
-.rung.done .rung-dot { background: var(--muted); border-color: var(--muted); }
-.rung.now .rung-dot { background: #fff; border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,.8); }
-.rung.next .rung-dot { border-color: #fff; }
-.rung.later .rung-tag, .rung.done .rung-tag { color: var(--muted); }
-.rung-body { padding: 0 0 14px 24px; }
+.life .ar { font-family: 'Geeza Pro', 'Noto Sans Arabic', 'Segoe UI', 'Tahoma', sans-serif; }
+.life-head { display: flex; flex-direction: column; gap: 6px; padding-top: 4px; }
+.life ul { margin: 0; padding: 0; list-style: none; }
+.life ul.ar li, .life .ar ul li { position: relative; padding-right: 18px; }
+.life ul.ar li::before, .life .ar ul li::before { content: ''; position: absolute; right: 2px; top: .72em; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .85; }
+
+.life-hero { position: relative; display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 22px 16px 20px; border-radius: 26px;
+  background: radial-gradient(rgba(255,255,255,.10) 1px, transparent 1.2px) 0 0 / 18px 18px, #0b0b0c; border: 1px solid var(--line); box-shadow: var(--glow-panel); overflow: hidden; }
+.life-pill { margin: 0; padding: 10px 20px; border-radius: 999px; background: #ffe8a3; color: #b3261e; font-size: 22px; font-weight: 700; box-shadow: 0 6px 22px rgba(255,214,102,.25); text-align: center; }
+.life-count { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.life-big { font: 900 clamp(40px, 13vw, 64px)/1 var(--f-display); color: #fff; text-shadow: var(--glow-text-hero); letter-spacing: .01em; }
+
+.life-line { position: relative; width: 100%; height: 44px; margin-top: 4px; }
+.life-line-track { position: absolute; left: 0; right: 0; top: 10px; height: 4px; border-radius: 4px; background: #2a2a2e; overflow: hidden; }
+.life-line-track i { display: block; height: 100%; background: #fff; box-shadow: 0 0 10px rgba(255,255,255,.8); }
+.life-line-dot { position: absolute; top: 5px; width: 14px; height: 14px; margin-left: -7px; border-radius: 50%; border: 2px solid #0b0b0c; }
+.life-line-now { position: absolute; top: 2px; width: 4px; height: 20px; margin-left: -2px; border-radius: 2px; background: #fff; box-shadow: 0 0 12px #fff; }
+.life-line-years { position: absolute; left: 0; right: 0; top: 28px; }
+.life-line-years span { position: absolute; transform: translateX(-50%); font: 500 10px/1 var(--f-mono); color: var(--muted); letter-spacing: .08em; }
+.life-line-years span::before { content: "'"; }
+
+.life-duo { display: grid; gap: var(--gap); }
+.life-sticky { border-radius: 4px; padding: 18px 18px 20px; box-shadow: 0 10px 24px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.15) inset; }
+.life-sticky h2 { font: 700 22px/1.2 var(--f-body); margin-bottom: 10px; text-align: center; }
+.life-sticky.orange { background: #ffa629; color: #fff; }
+.life-sticky.orange ul { display: flex; flex-direction: column; gap: 6px; font-size: 19px; }
+.life-sticky.orange li { padding-left: 18px; position: relative; }
+.life-sticky.orange li::before { content: ''; position: absolute; left: 2px; top: .6em; width: 6px; height: 6px; border-radius: 50%; background: #fff; }
+.life-sticky.yellow { background: #ffd966; color: #6a2bd9; font-weight: 700; font-size: 15px; line-height: 1.7; }
+.life-sticky.yellow ul { display: flex; flex-direction: column; gap: 4px; }
+
+.life-quran { border-radius: 22px; padding: 18px; background: #0f2a2b; border: 1px solid #1f4d4f; display: flex; flex-direction: column; gap: 16px; }
+.life-quran-row { display: flex; align-items: flex-start; justify-content: space-between; position: relative; }
+.life-quran-row::before { content: ''; position: absolute; left: 22px; right: 22px; top: 21px; height: 2px; background: #2f7f80; }
+.life-juz { position: relative; display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.life-juz b { display: grid; place-items: center; width: 44px; height: 44px; border-radius: 50%; background: #0f2a2b; border: 2px solid #3fb8b4; color: #bff3ef; font: 700 16px/1 var(--f-display); }
+.life-juz.on b { background: #3fb8b4; color: #062221; box-shadow: 0 0 14px rgba(63,184,180,.6); }
+.life-juz.full b { border-color: #7ef0e8; }
+.life-juz span { font: 500 10px/1 var(--f-mono); color: #8fc9c6; letter-spacing: .08em; }
+
+.life-road { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 18px 12px; border-radius: 22px; border: 1px solid var(--line);
+  background: radial-gradient(rgba(255,255,255,.09) 1px, transparent 1.2px) 0 0 / 18px 18px, #0b0b0c; }
+.life-road > .label { align-self: flex-start; margin-bottom: 8px; }
+.life-road-stage { display: flex; flex-direction: column; align-items: center; width: 100%; }
+.life-road-row { display: flex; justify-content: center; gap: 16px; flex-wrap: wrap; }
+.life-bubble { width: 112px; height: 112px; border-radius: 50%; display: grid; place-items: center; padding: 12px; text-align: center; font: 600 12px/1.3 var(--f-body); box-shadow: 0 8px 22px rgba(0,0,0,.4); overflow-wrap: anywhere; }
+.life-road-note { display: flex; flex-direction: column; align-items: center; gap: 8px; margin-top: 10px; text-align: center; }
+.life-road-orange { color: #ffa629; font: 700 16px/1.3 var(--f-body); }
+.life-road-aside { background: #1e1e1e; color: #fff; border: 1px solid #444; padding: 8px 14px; font: 500 13px/1 var(--f-body); }
+.life-arrow { color: #9a9aa0; display: block; margin: 4px auto; }
+
+.life-board { display: flex; flex-direction: column; padding: 18px 14px 22px; border-radius: 22px; border: 1px solid var(--line);
+  background: radial-gradient(rgba(255,255,255,.09) 1px, transparent 1.2px) 0 0 / 18px 18px, #0b0b0c; }
+.life-board > .row { margin-bottom: 14px; }
+.life-climb { display: flex; justify-content: center; }
+.life-step { display: grid; grid-template-columns: 1fr 1fr; grid-template-areas: 'card card' 'sticky photos' 'note note'; gap: 14px 12px; align-items: start; }
+.life-step.done { opacity: .55; filter: saturate(.6); }
+.life-card { grid-area: card; all: unset; box-sizing: border-box; grid-area: card; display: flex; flex-direction: column; gap: 10px; padding: 16px 18px 20px; border-radius: 6px; cursor: pointer;
+  background: var(--c); box-shadow: 0 12px 28px rgba(0,0,0,.5); position: relative; }
+.life-card:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.life-step.now .life-card { box-shadow: 0 0 0 2px #fff, 0 0 34px rgba(255,255,255,.35), 0 12px 28px rgba(0,0,0,.5); }
+.life-card h2 { font: 800 28px/1.1 var(--f-body); text-align: center; letter-spacing: -.01em; }
+.life-card ul { display: flex; flex-direction: column; gap: 4px; font-size: 19px; font-weight: 700; line-height: 1.55; text-align: right; }
+.life-card-top { display: flex; align-items: center; gap: 8px; font: 600 11px/1 var(--f-mono); letter-spacing: .12em; text-transform: uppercase; opacity: .92; }
+.life-num { opacity: .7; }
+.life-date { margin-left: auto; }
+.life-here { padding: 5px 8px; border-radius: 999px; background: #fff; color: #000; font-weight: 700; letter-spacing: .1em; box-shadow: 0 0 12px rgba(255,255,255,.7); }
+.life-here.soft { background: rgba(0,0,0,.25); color: inherit; box-shadow: none; }
+.life-step .life-sticky.yellow { grid-area: sticky; }
+.life-step .life-collage { grid-area: photos; }
+.life-note { grid-area: note; margin: 0; text-align: center; color: #d6d6da; font: italic 500 14px/1.4 var(--f-body); }
+
+.life-collage { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.life-collage.big { grid-template-columns: repeat(3, 1fr); width: 100%; max-width: 420px; }
+.life-collage.one { grid-template-columns: 1fr; }
+.life-collage.big.one { width: 62%; max-width: 280px; }
+.life-photo { padding: 4px 4px 12px; background: #fff; border-radius: 3px; box-shadow: 0 8px 18px rgba(0,0,0,.5); transition: transform .2s; }
+.life-photo:active { transform: scale(.96); }
+.life-photo img { display: block; width: 100%; aspect-ratio: 1; object-fit: cover; border-radius: 1px; background: #ddd; }
+.life-add { align-self: center; display: inline-flex; align-items: center; gap: 6px; padding: 8px 14px; border: 1.5px dashed var(--tick); border-radius: 999px; color: var(--muted); font: 500 12px/1 var(--f-mono); letter-spacing: .1em; text-transform: uppercase; }
+
+.life-thumbs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.life-thumb { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: #1a1a1a; }
+.life-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.life-thumb button { position: absolute; top: 4px; right: 4px; width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: rgba(0,0,0,.7); color: #fff; }
+.life-thumb.add { display: grid; place-items: center; border: 1.5px dashed var(--tick); background: transparent; color: var(--muted); }
+.life-swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid #333; }
+.life-swatch.on { border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,.6); }
+
+.life-lightbox { position: fixed; inset: 0; z-index: 90; display: grid; place-items: center; padding: 20px; background: rgba(0,0,0,.92); animation: fade .15s; }
+.life-lightbox img { max-width: 100%; max-height: 100%; border-radius: 6px; box-shadow: 0 0 40px rgba(0,0,0,.8); }
+@keyframes fade { from { opacity: 0 } to { opacity: 1 } }
+
+@media (min-width: 900px) {
+  .life-duo { grid-template-columns: 1fr 1fr; align-items: start; }
+  .life-board { padding: 26px 30px 30px; }
+  .life-step { grid-template-columns: minmax(0, 1fr) 240px 360px; grid-template-areas: 'photos sticky card' 'note sticky card'; gap: 10px 18px; }
+  .life-step .life-sticky.yellow { margin-top: 18px; }
+  .life-collage { grid-template-columns: repeat(3, 1fr); }
+  .life-hero { padding: 30px; }
+}

@@ -88,7 +88,7 @@ export async function load(force = false) {
       // Full Quran history (small). Tolerate a missing table until migration 003 has been run.
       q<QuranEvent[]>(supabase.from('quran_events').select('*').order('at').range(0, 49999))
         .catch((e) => { console.warn('quran_events unavailable (run migration 003):', e?.message); return [] as QuranEvent[] }),
-      q<Log[]>(supabase.from('logs').select('*').gte('local_date', since).order('logged_at').range(0, 9999)),
+      q<Log[]>(supabase.from('logs').select('*').neq('type', 'photo').gte('local_date', since).order('logged_at').range(0, 9999)),
       q<FocusBlock[]>(supabase.from('focus_blocks').select('*').gte('local_date', since).order('started_at').range(0, 9999)),
       q<Workout[]>(supabase.from('workouts').select('*').gte('local_date', since).order('started_at').range(0, 9999)),
       q<WorkoutSet[]>(supabase.from('workout_sets').select('*').range(0, 19999)),

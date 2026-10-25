@@ -61,11 +61,14 @@ export function parsePlan(raw: string, makeId: () => string): LifePlan {
     details: str(s?.details),
     due: date(s?.due),
     ...(str(s?.note) ? { note: str(s.note) } : {}),
+    ...(/^#[0-9a-f]{6}$/i.test(str(s?.color)) ? { color: str(s.color) } : {}),
   }))
+  const stages = Array.isArray(v.road?.stages) ? v.road.stages.map((r: any) => (Array.isArray(r) ? r.map(str).filter(Boolean) : [])).filter((r: string[]) => r.length) : []
   return {
     reminder: str(v.reminder) || undefined,
     principles: Array.isArray(v.principles) ? v.principles.map(str).filter(Boolean) : undefined,
     steps,
+    ...(stages.length ? { road: { stages, note: str(v.road.note) || undefined, aside: str(v.road.aside) || undefined } } : {}),
     current: clamp(Number.isInteger(v.current) ? v.current : 0, 0, steps.length - 1),
   }
 }
@@ -77,4 +80,37 @@ export function lifeText(plan: LifePlan, today = localDate()): string[] {
   const L = [`Now: step ${c + 1}/${plan.steps.length} · ${plan.steps[c]?.tag ?? ''}`]
   if (n) L.push(`Next: ${n.tag}${n.due ? ` by ${dueText(n.due)} (${countdownText(daysToNext(plan, today))})` : ''}`, n.text, n.details)
   return L.filter(Boolean)
+}
+
+/** Board colours (FigJam palette), by step name; anything else cycles through the palette. */
+const NAMED: Record<string, string> = {
+  'current state': '#1e1e1e', 'next step': '#f24822', experience: '#ffc943', 'break-even': '#14ae5c',
+  'mid-journey': '#0d99ff', prefinals: '#0d99ff', 'final target': '#9747ff',
+}
+const PALETTE = ['#1e1e1e', '#f24822', '#ffc943', '#14ae5c', '#0d99ff', '#0d99ff', '#9747ff']
+
+export function stepColor(s: LifeStep, i: number): string {
+  return s.color ?? NAMED[s.tag.trim().toLowerCase()] ?? PALETTE[i % PALETTE.length]
+}
+
+/** Light cards (yellow) need dark text. */
+export function isLight(hex: string): boolean {
+  const n = parseInt(hex.slice(1), 16)
+  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255]
+  return 0.299 * r + 0.587 * g + 0.114 * b > 165
+}
+
+/** Bullet lines of a multi-line field. */
+export const lines = (t: string) => t.split('\n').map((x) => x.trim()).filter(Boolean)
+
+/** Quran juz per step, read from the details ("حافظ 6 اجزاء", "حافظ نص القرآن", "حافظ القرآن ... كاملا"). */
+export function quranTrack(plan: LifePlan): { step: LifeStep; juz: number }[] {
+  const out: { step: LifeStep; juz: number }[] = []
+  for (const s of plan.steps) {
+    const t = `${s.text}\n${s.details}`
+    const n = t.match(/حافظ\s+(\d+)\s*(?:اجز|جز)/)
+    const juz = n ? Number(n[1]) : /حافظ\s+نص\s+القر/.test(t) ? 15 : /حافظ\s+القر[^\n]*كامل/.test(t) ? 30 : null
+    if (juz) out.push({ step: s, juz })
+  }
+  return out
 }

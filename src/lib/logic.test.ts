@@ -12,7 +12,7 @@ import type { Data } from './store'
 import { DAYS, EX } from '../data/program'
 import type { HabitEntry, Task, Workout, WorkoutSet } from './types'
 import { sortTasks, tasksForToday } from './tasks'
-import { countdownText, daysToNext, nextStep, parsePlan, stepState, timelinePct } from './life'
+import { countdownText, daysToNext, nextStep, parsePlan, quranTrack, stepColor, stepState, timelinePct } from './life'
 
 describe('progression (7.5)', () => {
   const curl = EX.db_curl // 10–12, step 5 lb
@@ -325,5 +325,24 @@ describe('life plan', () => {
     expect(p.steps[1]).toMatchObject({ tag: 'Step 2', due: null })
     expect(() => parsePlan('nope', () => 'x')).toThrow('Not valid JSON')
     expect(() => parsePlan('{"steps":[]}', () => 'x')).toThrow('No steps found')
+  })
+})
+
+describe('life plan board', () => {
+  const plan = parsePlan(JSON.stringify({
+    road: { stages: [['Masters'], ['A', 'B'], []], note: 'n' },
+    steps: [
+      { tag: 'Current state', text: 'x', details: 'حافظ 3 اجزاء' },
+      { tag: 'Mid-Journey', text: 'y', details: 'حافظ نص القرآن', color: '#123456' },
+      { tag: 'Final Target', text: 'z', details: 'حافظ القرآن كاملا' },
+    ],
+  }), () => 'id')
+  it('keeps the road and custom colours', () => {
+    expect(plan.road).toEqual({ stages: [['Masters'], ['A', 'B']], note: 'n', aside: undefined })
+    expect(stepColor(plan.steps[1], 1)).toBe('#123456')
+    expect(stepColor(plan.steps[2], 2)).toBe('#9747ff')
+  })
+  it('reads the Quran juz goals from the steps', () => {
+    expect(quranTrack(plan).map((x) => x.juz)).toEqual([3, 15, 30])
   })
 })

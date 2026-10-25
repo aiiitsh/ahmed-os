@@ -93,12 +93,24 @@ export interface LifeStep {
   due: string | null
   /** optional line under the step, e.g. a role-model quote */
   note?: string
+  /** card colour (hex); defaults by step name */
+  color?: string
+}
+
+/** The money road from the board: rows of circles, top to bottom. */
+export interface LifeRoad {
+  stages: string[][]
+  /** line under the road, e.g. "Different revenue streams" */
+  note?: string
+  /** sticker next to it, e.g. "I should have money" */
+  aside?: string
 }
 
 export interface LifePlan {
   reminder?: string
   principles?: string[]
   steps: LifeStep[]
+  road?: LifeRoad
   /** index of the step Ahmed is at now */
   current: number
   updated_at?: string
