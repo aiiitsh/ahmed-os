@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Icon } from './Icon'
 import { useToasts, dismiss } from '../lib/toast'
 
@@ -81,7 +82,8 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
     return () => window.removeEventListener('keydown', k)
   }, [open, onClose])
   if (!open) return null
-  return (
+  // Portal to <body>: a sheet opened from inside a screen would otherwise sit under the phone tab bar.
+  return createPortal(
     <div className="sheet-bg" onClick={onClose}>
       <div className="sheet" role="dialog" aria-label={title} onClick={(e) => e.stopPropagation()}>
         <div className="sheet-grip" />
@@ -93,7 +95,8 @@ export function Sheet({ open, onClose, title, children }: { open: boolean; onClo
         )}
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }
 

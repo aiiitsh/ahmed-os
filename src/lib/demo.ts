@@ -47,7 +47,21 @@ export function demoData(uid: string): Data {
   return {
     appState: {
       user_id: uid, rotation_next: 'C', skills: {}, french_unit: 3, pending_bed_at: null, focus: null,
-      active_session: null, streak_pin_hash: null, settings: { french_level: 'A1', streak_start: addDays(today, -95) },
+      active_session: null, streak_pin_hash: null, settings: {
+        french_level: 'A1', streak_start: addDays(today, -95),
+        // Sample only. The real plan lives in the database (this repo is public).
+        life_plan: {
+          reminder: 'لا تنسى أهلك',
+          principles: ['One direction focus', 'Best posture'],
+          current: 0,
+          steps: [
+            { id: 'l1', tag: 'Current state', text: 'بدرس و بتعلم', details: 'الوقت: الآن', due: addDays(today, -30) },
+            { id: 'l2', tag: 'Next step', text: 'جاهز لسوق العمل', details: 'الديدلاين: السنة الجاية', due: addDays(today, 300) },
+            { id: 'l3', tag: 'Experience', text: 'اشتغل في شركة كبيرة', details: '', due: addDays(today, 1000) },
+            { id: 'l4', tag: 'Final Target', text: 'الهدف النهائي', details: '', due: addDays(today, 3400), note: 'Sample note' },
+          ],
+        },
+      },
     },
     targets: Object.fromEntries(EXERCISES.map((e) => [e.key, { user_id: uid, exercise_key: e.key, ...seedTarget(e), last_feel: null, times_done: 0, calibrated: e.key.startsWith('db_') && e.days.includes('A') }])),
     quran, logs, focus, workouts: [wA, wB], sets, habits, reviews: [],

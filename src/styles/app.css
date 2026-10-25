@@ -297,3 +297,19 @@ input[type=date].field { color-scheme: dark; }
 .heat-rows .c.h3 span, .heat-rows .c.h4 span { color: #000; }
 .heat-rows .c.p span { color: #fff; }
 .heat-rows .c.now { border-color: #fff; }
+
+/* life plan */
+.ar-block { margin: 0; white-space: pre-line; text-align: right; font-size: 19px; line-height: 1.8; }
+.ar-block.small-ar { font-size: 16px; line-height: 1.75; }
+.life-reminder { margin: 4px 0 0; text-align: center; font-size: 28px; color: var(--text-strong); text-shadow: var(--glow-text-soft); }
+.ladder { display: flex; flex-direction: column; }
+.rung { border-bottom: 1px solid var(--divider); }
+.rung:last-child { border-bottom: 0; }
+.rung-head { all: unset; box-sizing: border-box; display: flex; align-items: center; gap: 12px; width: 100%; min-height: 48px; padding: 10px 0; cursor: pointer; }
+.rung-head:focus-visible { outline: 1px solid var(--text-strong); outline-offset: 2px; border-radius: 8px; }
+.rung-dot { width: 12px; height: 12px; border-radius: 50%; border: 1.5px solid var(--tick); flex: none; }
+.rung.done .rung-dot { background: var(--muted); border-color: var(--muted); }
+.rung.now .rung-dot { background: #fff; border-color: #fff; box-shadow: 0 0 10px rgba(255,255,255,.8); }
+.rung.next .rung-dot { border-color: #fff; }
+.rung.later .rung-tag, .rung.done .rung-tag { color: var(--muted); }
+.rung-body { padding: 0 0 14px 24px; }

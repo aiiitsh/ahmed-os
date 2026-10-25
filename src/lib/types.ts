@@ -77,6 +77,31 @@ export interface Settings {
   focus_tags?: Record<string, FocusTag>
   /** one-off: blocks logged on 24 Oct 2026 were tagged Study */
   focus_backfill_1024?: boolean
+  /** Long-term life plan (the "Life" screen). Lives here, not in the code, because the repo is public. */
+  life_plan?: LifePlan
+}
+
+export interface LifeStep {
+  id: string
+  /** short name, e.g. "Next step" */
+  tag: string
+  /** what this step looks like, in Ahmed's own words */
+  text: string
+  /** deadline, money, Quran etc., in Ahmed's own words */
+  details: string
+  /** date this step should be reached (local date), optional */
+  due: string | null
+  /** optional line under the step, e.g. a role-model quote */
+  note?: string
+}
+
+export interface LifePlan {
+  reminder?: string
+  principles?: string[]
+  steps: LifeStep[]
+  /** index of the step Ahmed is at now */
+  current: number
+  updated_at?: string
 }
 
 export interface Task {

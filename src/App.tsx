@@ -20,9 +20,10 @@ import { Work } from './screens/Work'
 import { Streak } from './screens/Streak'
 import { Review } from './screens/Review'
 import { Settings } from './screens/Settings'
+import { Life } from './screens/Life'
 
-export type Route = 'home' | 'body' | 'learn' | 'work' | 'streak' | 'review' | 'settings'
-const ROUTES: Route[] = ['home', 'body', 'learn', 'work', 'streak', 'review', 'settings']
+export type Route = 'home' | 'body' | 'learn' | 'work' | 'streak' | 'review' | 'life' | 'settings'
+const ROUTES: Route[] = ['home', 'body', 'learn', 'work', 'streak', 'review', 'life', 'settings']
 const TABS: { r: Route; icon: string; label: string }[] = [
   { r: 'home', icon: 'tab-home', label: 'Home' },
   { r: 'body', icon: 'tab-body', label: 'Body' },
@@ -139,6 +140,7 @@ function Shell() {
         <div className="brand">AHMED</div>
         {TABS.map((t) => <TabLink key={t.r} t={t} on={route === t.r} />)}
         <div style={{ flex: 1 }} />
+        <TabLink t={{ r: 'life', icon: 'life', label: 'Life' }} on={route === 'life'} />
         <TabLink t={{ r: 'settings', icon: 'gear', label: 'Settings' }} on={route === 'settings'} />
       </nav>
       <Screens route={route}>{(r) => (loaded && hasApp ? SCREENS[r]() : screen)}</Screens>
@@ -154,13 +156,13 @@ function Shell() {
 
 const SCREENS: Record<Route, () => ReactNode> = {
   home: () => <Home />, body: () => <Body />, learn: () => <Learn />, work: () => <Work />,
-  streak: () => <Streak />, review: () => <Review />, settings: () => <Settings />,
+  streak: () => <Streak />, review: () => <Review />, life: () => <Life />, settings: () => <Settings />,
 }
 
 // ---------- native-feel navigation: slide transitions + swipe between tabs ----------
 
 const ORDER: Route[] = ['home', 'body', 'learn', 'work', 'streak', 'review']
-const rank = (r: Route) => (r === 'settings' ? 99 : ORDER.indexOf(r))
+const rank = (r: Route) => (r === 'settings' ? 99 : r === 'life' ? 98 : ORDER.indexOf(r))
 type Layer = { r: Route; id: number; cls: string }
 
 function Screens({ route, children }: { route: Route; children: (r: Route) => ReactNode }) {
