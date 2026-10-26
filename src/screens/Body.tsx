@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { weekStats, fmt1 } from '../lib/stats'
 import { fmtDay, fmtDur, minutesBetween, weekStart } from '../lib/time'
-import { adjustTarget, deleteWorkout, editSet, logRoutine, routineToday, startSession, swimPlan } from '../lib/actions'
+import { adjustTarget, deleteWorkout, editSet, startSession, swimPlan } from '../lib/actions'
 import { fmtW } from '../lib/format'
-import { DAILY_ROUTINE, DAYS, EX, EXERCISES, GROUPS, isSecs, repStep, type Exercise } from '../data/program'
+import { DAY_ORDER, DAYS, EX, EXERCISES, GROUPS, isSecs, repStep, type Exercise } from '../data/program'
 import type { DayCode, WorkoutSet } from '../lib/types'
 import { Bar, DeleteX, Label, Sparkline, Stepper } from '../components/ui'
 import { Icon } from '../components/Icon'
@@ -57,7 +57,6 @@ export function Body() {
       </div>
 
       <div className="cols c2">
-        <Routine />
         <NextPreview />
       </div>
 
@@ -93,7 +92,7 @@ function NextPreview() {
       <div className="row between">
         <Label>{pick === next ? 'Next session' : 'Other day'}</Label>
         <div className="row" style={{ gap: 6 }}>
-          {(['A', 'B', 'C'] as DayCode[]).map((d) => (
+          {DAY_ORDER.map((d) => (
             <button key={d} className={`chip${pick === d ? ' on' : ''}`} onClick={() => setPick(d)}>{d}</button>
           ))}
         </div>
@@ -135,19 +134,19 @@ function Cardio() {
             <Icon name="swim" size={26} />
             <div className="stack" style={{ gap: 3 }}>
               <span className="strong">Next swim</span>
-              <span className="label">25 m sprints · belly then back</span>
+              <span className="label">Slow & long · freestyle + backstroke · no sprints</span>
             </div>
           </div>
           {s.swim && <span className="chip on sm">{s.swim}</span>}
         </div>
         <div className="grid2">
-          <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{plan.rest_s}s</span><Label>Rest between 25s</Label></div>
-          <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{plan.target_min} min</span><Label>Aim to last</Label></div>
+          <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>{plan.target_m} m</span><Label>Next distance</Label></div>
+          <div className="stack" style={{ gap: 3 }}><span className="big-num" style={{ fontSize: 20 }}>30–40 min</span><Label>Easy pace</Label></div>
         </div>
         {swims.length > 1 && (
           <div className="stack" style={{ gap: 4 }}>
-            <Label>Minutes lasted · last {Math.min(10, swims.length)}</Label>
-            <Sparkline values={swims.slice(-10).map((l) => Number(l.data.minutes) || null)} height={40} />
+            <Label>Metres · last {Math.min(10, swims.length)}</Label>
+            <Sparkline values={swims.slice(-10).map((l) => Number(l.data.meters) || null)} height={40} />
           </div>
         )}
         {recent.length > 0 && (
@@ -155,7 +154,7 @@ function Cardio() {
             {recent.map((l) => (
               <div key={l.id} className="li" style={{ minHeight: 36, padding: '8px 0' }}>
                 <span className="mono small" style={{ width: 92 }}>{fmtDay(l.local_date)}</span>
-                <span className="grow mono small strong">{l.data.minutes} MIN</span>
+                <span className="grow mono small strong">{l.data.meters ? `${l.data.meters} M · ` : ''}{l.data.minutes} MIN</span>
                 {l.data.intensity && <span className={`chip sm${l.data.intensity === 'intense' ? ' warn' : ''}`}>{l.data.intensity}</span>}
                 {l.data.rest_s != null && <span className="mono small muted">{l.data.rest_s}S REST</span>}
               </div>
@@ -226,32 +225,6 @@ function Targets() {
   )
 }
 
-
-function Routine() {
-  useStore((st) => st.logs)
-  const done = !!routineToday()
-  return (
-    <section className="panel deep stack" style={{ gap: 12 }}>
-      <div className="row between">
-        <div className="stack" style={{ gap: 4 }}>
-          <Label>Non-gym days · 8 min · gentle</Label>
-          <div className="title" style={{ fontSize: 18 }}>Posture reset</div>
-        </div>
-        {done && <span className="chip on">✓ today</span>}
-      </div>
-      <div className="list">
-        {DAILY_ROUTINE.map((r) => (
-          <div key={r.name} className="li" style={{ minHeight: 40, padding: '8px 0' }}>
-            <Icon name={r.icon} size={20} />
-            <span className="grow small">{r.name}</span>
-            <span className="mono small muted">{r.dose}</span>
-          </div>
-        ))}
-      </div>
-      <button className={`btn btn-big btn-caps${done ? '' : ' btn-filled'}`} onClick={logRoutine}>{done ? 'Done today ✓' : 'Done'}</button>
-    </section>
-  )
-}
 
 /** Past workouts: tap one to fix weights/reps you actually did, or delete it. */
 function History() {

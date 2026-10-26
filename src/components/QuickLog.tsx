@@ -3,13 +3,13 @@ import { create } from 'zustand'
 import { Icon } from './Icon'
 import { Sheet, Stepper, Label } from './ui'
 import { QuranBrowser } from './Quran'
-import { CARDIO, DAILY_ROUTINE, DURATIONS, FRENCH_ACTIVITIES, FRENCH_MINUTES, ROUTINE_TIP, SWIM_INTENSITY } from '../data/program'
-import { logCardio, logFrench, logHike, logRoutine, logSwim, routineToday, startFocus, swimPlan } from '../lib/actions'
-import type { SwimDone } from '../lib/progression'
+import { CARDIO, DAILY_ROUTINE, DURATIONS, FRENCH_ACTIVITIES, FRENCH_MINUTES, PROTEIN_FOODS, ROUTINE_TIP, SWIM, SWIM_HOW } from '../data/program'
+import { logCardio, logFrench, logHike, logProtein, logRoutine, logSwim, routineToday, startFocus, swimPlan } from '../lib/actions'
+import { proteinGoal, proteinOn } from '../lib/plan'
 import { useStore } from '../lib/store'
 import { fmtDur, localDate } from '../lib/time'
 
-export type SheetKey = 'cardio' | 'swim' | 'run' | 'squash' | 'hike' | 'routine' | 'quran' | 'french' | 'focus'
+export type SheetKey = 'cardio' | 'swim' | 'run' | 'squash' | 'hike' | 'routine' | 'quran' | 'french' | 'focus' | 'protein'
 
 export const useSheet = create<{ open: SheetKey | null }>(() => ({ open: null }))
 export const openSheet = (k: SheetKey) => useSheet.setState({ open: k })
@@ -34,18 +34,17 @@ type Ago = '0' | '1' | '2'
 const AGO: [Ago, string][] = [['0', 'Today'], ['1', 'Yesterday'], ['2', '2 days ago']]
 
 function SwimSheet() {
-  const plan = useStore((s) => s.appState?.settings?.swim) ?? swimPlan()
+  useStore((s) => s.logs)
+  const { target_m } = swimPlan()
   const [daysAgo, setDaysAgo] = useState<Ago>('0')
-  const [minutes, setMinutes] = useState(plan.target_min)
-  const [rest, setRest] = useState(plan.rest_s)
-  const [intensity, setIntensity] = useState<SwimDone['intensity']>('moderate')
+  const [meters, setMeters] = useState(target_m)
+  const [minutes, setMinutes] = useState(35)
   return (
     <div className="stack" style={{ gap: 18 }}>
       <div className="panel" style={{ padding: 14 }}>
-        <Label>Today's set</Label>
+        <Label>Today's swim</Label>
         <p style={{ marginTop: 8, lineHeight: 1.55 }}>
-          25 m sprint on your <b>belly</b> → rest <b>{plan.rest_s} s</b> → 25 m sprint on your <b>back</b> → rest <b>{plan.rest_s} s</b>. Repeat.
-          Aim to last <b>{plan.target_min} min</b>.
+          <b>{target_m} m</b>, slow. {SWIM_HOW} Distance goes up {SWIM.step_m} m each time you make it, up to {SWIM.max_m} m.
         </p>
       </div>
       <div className="stack" style={{ gap: 8 }}>
@@ -53,18 +52,41 @@ function SwimSheet() {
         <Segmented value={daysAgo} options={AGO} onChange={setDaysAgo} />
       </div>
       <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
-        <Label>How long did you last?</Label>
-        <Stepper value={`${minutes}`} sub="minutes" onMinus={() => setMinutes((m) => Math.max(1, m - 1))} onPlus={() => setMinutes((m) => m + 1)} />
+        <Label>Distance</Label>
+        <Stepper value={`${meters}`} sub="metres" onMinus={() => setMeters((m) => Math.max(50, m - 50))} onPlus={() => setMeters((m) => m + 50)} />
       </div>
       <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
-        <Label>Rest you used between 25s</Label>
-        <Stepper value={`${rest}s`} sub="seconds" onMinus={() => setRest((r) => Math.max(5, r - 5))} onPlus={() => setRest((r) => r + 5)} />
+        <Label>Time</Label>
+        <Stepper value={`${minutes}`} sub="minutes" onMinus={() => setMinutes((m) => Math.max(5, m - 5))} onPlus={() => setMinutes((m) => m + 5)} />
       </div>
-      <div className="stack" style={{ gap: 8 }}>
-        <Label>Intensity</Label>
-        <Segmented value={intensity} options={SWIM_INTENSITY as [SwimDone['intensity'], string][]} onChange={setIntensity} />
+      <button className="btn btn-filled btn-big btn-caps" onClick={() => { logSwim({ meters, minutes }, Number(daysAgo)); close() }}>Save swim</button>
+    </div>
+  )
+}
+
+function ProteinSheet() {
+  const data = useStore()
+  const today = localDate()
+  const g = proteinOn(data, today)
+  const goal = proteinGoal(data)
+  const [custom, setCustom] = useState(30)
+  return (
+    <div className="stack" style={{ gap: 18 }}>
+      <div className="stack" style={{ gap: 4, alignItems: 'center' }}>
+        <span className="big-num" style={{ fontSize: 32 }}>{g}<span style={{ fontSize: 14 }}> / {goal} g</span></span>
+        <Label>Today · about 30 g at each of 4 meals</Label>
       </div>
-      <button className="btn btn-filled btn-big btn-caps" onClick={() => { logSwim({ minutes, rest_s: rest, intensity }, Number(daysAgo)); close() }}>Save swim</button>
+      <div className="row wrap" style={{ gap: 8 }}>
+        {PROTEIN_FOODS.map(([name, n]) => (
+          <button key={name} className="chip" onClick={() => logProtein(n, name)}>{name} +{n} g</button>
+        ))}
+      </div>
+      <div className="stack" style={{ gap: 8, alignItems: 'center' }}>
+        <Label>Something else</Label>
+        <Stepper value={`${custom}`} sub="grams" onMinus={() => setCustom((c) => Math.max(5, c - 5))} onPlus={() => setCustom((c) => c + 5)} />
+        <button className="btn btn-outline btn-caps" onClick={() => logProtein(custom)}>Add {custom} g</button>
+      </div>
+      <button className="btn btn-filled btn-big btn-caps" onClick={close}>Done</button>
     </div>
   )
 }
@@ -184,7 +206,7 @@ function CardioPicker() {
 }
 
 const TITLES: Record<SheetKey, string> = {
-  cardio: 'What did you do?', swim: 'Log swim', run: 'Run', squash: 'Squash', hike: 'Log hike', routine: 'Posture reset', quran: 'Quran', french: 'French', focus: 'Focus',
+  cardio: 'What did you do?', swim: 'Log swim', run: 'Run', squash: 'Squash', hike: 'Log hike', routine: 'Posture reset', quran: 'Quran', french: 'French', focus: 'Focus', protein: 'Protein',
 }
 
 export function QuickSheets() {
@@ -192,6 +214,7 @@ export function QuickSheets() {
   return (
     <Sheet open={open != null} onClose={close} title={open ? TITLES[open] : undefined}>
       {open === 'swim' && <SwimSheet />}
+      {open === 'protein' && <ProteinSheet />}
       {(open === 'run' || open === 'squash') && <CardioSheet key={open} sport={open} />}
       {open === 'hike' && <HikeSheet />}
       {open === 'cardio' && <CardioPicker />}

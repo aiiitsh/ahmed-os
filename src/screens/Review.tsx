@@ -88,7 +88,7 @@ export function Review() {
           <div className="grid3">
             <Stat v={w.workouts.length} k={`Sessions · A${w.byDayCode.A} B${w.byDayCode.B} C${w.byDayCode.C}`} />
             <Stat v={w.cardio.length} k="Cardio" />
-            <Stat v={`${w.routineDays}/7`} k="Core routine" />
+            <Stat v={`${w.proteinDays}/7`} k="Protein days" />
             <Stat v={w.swims.length} k="Swims" />
             <Stat v={w.hikes.length ? `${w.hikes.reduce((a, l) => a + (Number(l.data.km) || 0), 0)} KM` : '0'} k="Hiked" />
             <Stat v={`${Math.round(w.hardPct * 100)}%`} k="Hard sets" />

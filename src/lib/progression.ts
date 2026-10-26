@@ -54,27 +54,3 @@ export function progress(ex: Exercise, inp: ProgressInput): ProgressResult {
   }
   return { weight: w, reps: r, feel }
 }
-
-// ---------- swim: 25 m sprint front, rest, 25 m sprint back, rest ----------
-
-export interface SwimDone {
-  minutes: number
-  rest_s: number
-  intensity: 'easy' | 'moderate' | 'intense'
-}
-
-/**
- * Next session's rest between 25 m sprints and how long to aim to last.
- * The goal is lasting longer: hit the target → aim 2 min longer; felt easy → rest less.
- * Moderate and on target also trims 5 s, so rest comes down gradually from what you actually used.
- */
-export function nextSwim(cur: { rest_s: number; target_min: number }, done: SwimDone) {
-  const hit = done.minutes >= cur.target_min
-  let rest = done.rest_s
-  if (done.intensity === 'easy') rest -= 10
-  else if (done.intensity === 'moderate' && hit) rest -= 5
-  else if (done.intensity === 'intense' && !hit) rest += 5
-  rest = Math.max(15, Math.min(150, rest))
-  const target_min = hit ? done.minutes + 2 : Math.max(cur.target_min, done.minutes + 1)
-  return { rest_s: rest, target_min }
-}

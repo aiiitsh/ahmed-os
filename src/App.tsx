@@ -7,7 +7,7 @@ import { setErrorHandler, startQueue } from './lib/queue'
 import { toast } from './lib/toast'
 import { autoCloseStaleSession, backfillStudyOct24, focusBreak, focusResume, saveWeekPlan, startFocus } from './lib/actions'
 import { generateWeekPlan, planFor } from './lib/weekplan'
-import { dow, localDate, weekStart } from './lib/time'
+import { localDate, weekStart } from './lib/time'
 import { GlowDefs, Toasts } from './components/ui'
 import { Icon } from './components/Icon'
 import { QuickSheets, useSheet } from './components/QuickLog'
@@ -81,9 +81,9 @@ function Live() {
       }
       if (!cancelled) await load(true)
       autoCloseStaleSession()
-      // Saturday (or Sunday): make this week's plan automatically if there isn't one.
+      // Make this week's plan (Monday → Sunday) automatically if there isn't one.
       const today = localDate()
-      if ((dow(today) === 6 || dow(today) === 0) && get().appState && !planFor(get(), weekStart(today))) {
+      if (get().appState && !planFor(get(), weekStart(today))) {
         saveWeekPlan(generateWeekPlan(get(), weekStart(today)))
       }
       startQueue()

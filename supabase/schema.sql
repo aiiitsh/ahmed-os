@@ -4,7 +4,7 @@ create extension if not exists "pgcrypto";
 -- One row per user: app-wide state
 create table public.app_state (
   user_id uuid primary key references auth.users(id) on delete cascade,
-  rotation_next text not null default 'A' check (rotation_next in ('A','B','C')),
+  rotation_next text not null default 'A' check (rotation_next in ('A','B','C','D')),
   skills jsonb not null default '{}'::jsonb,        -- see 7.2 seed
   french_unit int not null default 1,
   pending_bed_at timestamptz,                        -- set by "Going to bed"
@@ -33,7 +33,7 @@ create table public.workouts (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
   local_date date not null,
-  day_code text not null check (day_code in ('A','B','C')),
+  day_code text not null check (day_code in ('A','B','C','D')),
   started_at timestamptz not null,
   ended_at timestamptz,
   skill_key text,                 -- 'muscleup' | 'planche' | null

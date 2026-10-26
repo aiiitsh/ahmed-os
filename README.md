@@ -48,20 +48,20 @@ npm run icons     # regenerate the PWA icons (white glowing "A" on black)
 
 | Area | Where |
 |---|---|
-| Program (rotation A/B/C, exercises, targets, swaps, muscle credit, goals) | [`src/data/program.ts`](src/data/program.ts) |
+| Program (Days A/B/C/D, exercises, targets, swaps, muscle credit, goals) | [`src/data/program.ts`](src/data/program.ts) |
 | Progression rules (Easy/Good/Hard → next weight/reps) | [`src/lib/progression.ts`](src/lib/progression.ts) |
 | Every action + Undo (logs, sleep, focus, Quran, French, streak, session runner) | [`src/lib/actions.ts`](src/lib/actions.ts) |
 | Week stats, insights, reminders, sleep/focus/streak math | [`src/lib/stats.ts`](src/lib/stats.ts) |
 | Copy-for-Claude text + JSON export | [`src/lib/export.ts`](src/lib/export.ts) |
 | Offline write queue (IndexedDB, retried on `online`/focus) | [`src/lib/queue.ts`](src/lib/queue.ts) |
 | Store, loading, first-run seed | [`src/lib/store.ts`](src/lib/store.ts) |
-| Toronto dates, Sat→Fri weeks | [`src/lib/time.ts`](src/lib/time.ts) |
+| Toronto dates, Mon→Sun weeks | [`src/lib/time.ts`](src/lib/time.ts) |
 | Screens | [`src/screens/`](src/screens) |
 | Design tokens + glow recipes | [`src/styles/`](src/styles) |
 
 - **Optimistic writes:** local state updates first; the write goes to Supabase, and on a network error it's queued in IndexedDB and replayed in order. A pulsing dot in the Home header shows while anything is unsynced.
 - **Cross-device:** realtime subscription + refetch on focus/visibility + 60 s poll. The focus timer and in-progress workout live in `app_state`, so they survive reloads and device switches.
-- **Dates:** every row stores a Toronto `local_date`; weeks are Saturday → Friday.
+- **Dates:** every row stores a Toronto `local_date`; weeks are Monday → Sunday (plans made before 26 Oct 2026 were Saturday → Friday).
 - **Laptop shortcuts:** `B` going to bed, `W` woke up, `F` focus start/break/resume.
 
 ### Interpretation notes

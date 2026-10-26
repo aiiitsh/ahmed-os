@@ -1,9 +1,9 @@
-// Weekly plan, made on Saturday from last week's data: gym days (A/B/C), cardio, swim and rest days.
-// You can change any day. Surprise activities are logged as usual and shape next week's plan.
+// Weekly plan, Monday to Sunday: 4 gym days (A/B/C/D), 1 slow swim, 2 full rest days.
+// You can change any day. Squash, hikes and runs are not planned: if you do one, it replaces the swim.
 import { DAYS } from '../data/program'
 import type { Data } from './store'
-import type { DayCode, PlanSlot, SlotKind, WeekPlan } from './types'
-import { addDays, daysBetween, dow, weekStart } from './time'
+import type { PlanSlot, SlotKind, WeekPlan } from './types'
+import { addDays, daysBetween, weekStart } from './time'
 import { activityLoad } from './activity'
 
 export const SLOT_LABEL: Record<SlotKind, string> = {
@@ -12,7 +12,7 @@ export const SLOT_LABEL: Record<SlotKind, string> = {
 export const SLOT_ICON: Record<SlotKind, string> = {
   gym: 'dumbbell', swim: 'swim', run: 'run', hike: 'hike', squash: 'squash', cardio: 'run', rest: 'bed',
 }
-export const WEEKDAYS = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']
+export const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
 /** Activities that load the legs (Day C should not come the day after). */
 export const LEG_SLOTS = new Set<SlotKind>(['run', 'hike', 'squash', 'cardio'])
 
@@ -27,70 +27,35 @@ export function slotOn(data: Data, d: string): PlanSlot | null {
   return planFor(data, ws)?.days[daysBetween(ws, d)] ?? null
 }
 
-/** Index in a Sat→Fri week for a date. */
-const weekIdx = (d: string) => (dow(d) + 1) % 7
-
 const dayLoad = (data: Data, d: string) =>
   data.workouts.filter((w) => w.local_date === d).length * 3 + data.logs.filter((l) => l.local_date === d).reduce((a, l) => a + activityLoad(l), 0)
 
-/** Give A/B/C to the three gym slots: most overdue first, no Day C after leg cardio, no Day A right after a swim. */
-export function assignGymDays(data: Data, ws: string, kinds: SlotKind[]): DayCode[] {
-  const gymIdx = kinds.map((k, i) => (k === 'gym' ? i : -1)).filter((i) => i >= 0)
-  const last = (c: DayCode) => data.workouts.filter((w) => w.day_code === c && w.local_date < ws).map((w) => w.local_date).sort().at(-1) ?? ''
-  const rank = (['A', 'B', 'C'] as DayCode[]).sort((a, b) => last(a).localeCompare(last(b))) // never/oldest first
-  const perms: DayCode[][] = [['A', 'B', 'C'], ['A', 'C', 'B'], ['B', 'A', 'C'], ['B', 'C', 'A'], ['C', 'A', 'B'], ['C', 'B', 'A']]
-  let best: DayCode[] = rank
-  let bestScore = Infinity
-  for (const p of perms) {
-    let score = 0
-    p.slice(0, gymIdx.length).forEach((code, k) => {
-      const i = gymIdx[k]
-      const prev = i > 0 ? kinds[i - 1] : null
-      score += rank.indexOf(code) * k
-      if (code === 'C' && prev && LEG_SLOTS.has(prev)) score += 10
-      if (code === 'A' && prev === 'swim') score += 3
-    })
-    if (score < bestScore) { bestScore = score; best = p }
-  }
-  return best.slice(0, gymIdx.length)
-}
+/**
+ * The fixed week: Mon A (pull + arms) · Tue C (legs) · Wed rest · Thu B (push + arms) · Fri rest · Sat D (size) · Sun swim.
+ * Weekday sessions are after work; Saturday and Sunday are in the morning, before any weekend work.
+ */
+export const WEEK_TEMPLATE: PlanSlot[] = [
+  { kind: 'gym', day: 'A' }, { kind: 'gym', day: 'C' }, { kind: 'rest' }, { kind: 'gym', day: 'B' },
+  { kind: 'rest' }, { kind: 'gym', day: 'D' }, { kind: 'swim' },
+]
 
-/** Build the plan for the week starting `ws` (a Saturday) from what happened before it. */
+/** Build the plan for the week starting `ws` (a Monday). */
 export function generateWeekPlan(data: Data, ws: string): WeekPlan {
   const prev = addDays(ws, -7)
   const prevDays = Array.from({ length: 7 }, (_, i) => addDays(prev, i))
   const sessions = data.workouts.filter((w) => w.local_date >= prev && w.local_date < ws).length
   const cardio = data.logs.filter((l) => l.type === 'cardio' && l.local_date >= prev && l.local_date < ws)
-  const loads = prevDays.map((d) => dayLoad(data, d))
-  const restDays = loads.filter((x) => x < 1).length
-  let stacked = 0
-  for (let i = 1; i < 7; i++) if (loads[i] >= 3 && loads[i - 1] >= 3) stacked++
+  const restDays = prevDays.map((d) => dayLoad(data, d)).filter((x) => x < 1).length
 
-  // Template: Sat free cardio · Sun gym · Mon swim · Tue gym · Wed rest · Thu gym · Fri rest.
-  const kinds: SlotKind[] = ['cardio', 'gym', 'swim', 'gym', 'rest', 'gym', 'rest']
-  // Swim goes on the non-gym weekday you've actually swum most (last 3 weeks).
-  const swimCounts = [2, 4, 6].map((i) => ({
-    i, n: data.logs.filter((l) => l.type === 'cardio' && l.data.sport === 'swim' && l.local_date >= addDays(ws, -21) && l.local_date < ws && weekIdx(l.local_date) === i).length,
-  }))
-  const topSwim = swimCounts.sort((a, b) => b.n - a.n)[0]
-  if (topSwim.n > 0 && topSwim.i !== 2) { kinds[2] = 'rest'; kinds[topSwim.i] = 'swim' }
-  // Keep at least one rest day after the swim if it moved to Wed; Fri stays rest unless it's the swim day.
-
-  const codes = assignGymDays(data, ws, kinds)
-  let k = 0
-  const days: PlanSlot[] = kinds.map((kind) => (kind === 'gym' ? { kind, day: codes[k++] } : { kind }))
-
+  const days: PlanSlot[] = WEEK_TEMPLATE.map((s) => ({ ...s }))
   const why: string[] = []
   why.push(`Last week: ${sessions} gym session${sessions === 1 ? '' : 's'}, ${cardio.length} cardio, ${restDays} real rest day${restDays === 1 ? '' : 's'}.`)
-  if (sessions < 2) why.push('Few sessions last week, so 3 are planned and nothing more. Showing up beats doing a lot.')
-  if (stacked > 0 || restDays < 2) why.push('You stacked hard days last week, so this week has 2 full rest days. Recovery is where you get stronger.')
-  const first = days.find((s) => s.kind === 'gym')!
-  const lastFirst = data.workouts.filter((w) => w.day_code === first.day && w.local_date < ws).map((w) => w.local_date).sort().at(-1)
-  why.push(`Day ${first.day} comes first: ${lastFirst ? `last done ${daysBetween(lastFirst, ws)} days ago` : "it hasn't been done yet"}.`)
-  why.push('Saturday is your free cardio day (run, hike or squash: change it if you know). Day C never comes right after it, so legs are fresh.')
-  if (topSwim.n > 0) why.push(`Swim on ${WEEKDAYS[days.findIndex((s) => s.kind === 'swim')]}: that's when you usually swim.`)
-  why.push('Posture every day: inside the warm-up and cool-down on gym days, an 8-min gentle reset on the other days.')
-  why.push('APT fix without growing glutes: hamstrings, lower abs and hip flexor stretches. Glutes get activation only (bodyweight bridges), never weight.')
+  why.push('4 gym days: upper body 3× a week (A, B, D) because that is where you want size; legs once (C) for strength and knee alignment, not size.')
+  why.push('Weekdays after work (snack at 16:00, gym around 17:45). Saturday gym and Sunday swim in the morning, before any weekend work.')
+  why.push('Wednesday and Friday are full rest days. Recovery is where you get bigger.')
+  why.push('Sunday swim is slow and long: technique and posture, distance goes up 100 m a week. No sprints.')
+  why.push('All stretching is inside the warm-ups and cool-downs. Nothing extra on rest days.')
+  why.push('Squash, hikes and runs are not planned. If you really want one, it replaces the swim, never stacks on top.')
   return { week_start: ws, created_at: new Date().toISOString(), days, why }
 }
 

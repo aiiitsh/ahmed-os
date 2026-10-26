@@ -39,6 +39,7 @@ export const sportLabel = (s: string) => ({ swim: 'Swim', hike: 'Hike', run: 'Ru
 export function describeCardio(l: Log): string {
   const d = l.data
   if (d.sport === 'hike') return `Hike ${d.km} km`
+  if (d.sport === 'swim' && d.meters) return `Swim ${d.meters} m`
   return `${sportLabel(d.sport)} ${d.minutes} min`
 }
 
@@ -51,7 +52,7 @@ export function activityLoad(l: Log): number {
     case 'hike': return Math.max((Number(d.km) || 0) / 4, min / 60)
     case 'run': return min / 20
     case 'squash': return min / 20
-    case 'swim': return (min / 15) * (d.intensity === 'intense' ? 1.3 : d.intensity === 'easy' ? 0.7 : 1)
+    case 'swim': return Math.min(2, min / 20) // slow technique swims are close to recovery
   }
   return 0
 }

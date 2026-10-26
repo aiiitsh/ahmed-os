@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useStore } from '../lib/store'
 import { saveWeekPlan, setPlanSlot } from '../lib/actions'
-import { addDays, dow, fmtDay, localDate, weekStart } from '../lib/time'
+import { addDays, daysBetween, fmtDay, localDate, weekStart } from '../lib/time'
 import { SLOT_ICON, WEEKDAYS, generateWeekPlan, planFor, slotStatus, slotText, unplanned } from '../lib/weekplan'
 import type { PlanSlot, WeekPlan } from '../lib/types'
 import { Icon } from './Icon'
 import { Label, Sheet } from './ui'
 
 const CHOICES: [string, PlanSlot][] = [
-  ['Gym · Day A', { kind: 'gym', day: 'A' }], ['Gym · Day B', { kind: 'gym', day: 'B' }], ['Gym · Day C', { kind: 'gym', day: 'C' }],
+  ['Gym · Day A', { kind: 'gym', day: 'A' }], ['Gym · Day B', { kind: 'gym', day: 'B' }], ['Gym · Day C', { kind: 'gym', day: 'C' }], ['Gym · Day D', { kind: 'gym', day: 'D' }],
   ['Swim', { kind: 'swim' }], ['Run', { kind: 'run' }], ['Hike', { kind: 'hike' }], ['Squash', { kind: 'squash' }],
   ['Any cardio', { kind: 'cardio' }], ['Rest', { kind: 'rest' }],
 ]
@@ -19,7 +19,7 @@ export function WeekPlanPanel() {
   const today = localDate()
   const ws = weekStart(today)
   const next = addDays(ws, 7)
-  const wd = (dow(today) + 1) % 7 // Sat = 0 … Fri = 6
+  const wd = daysBetween(ws, today) // Mon = 0 … Sun = 6
   const cur = planFor(data, ws)
   const nxt = planFor(data, next)
   const make = (start: string) => saveWeekPlan(generateWeekPlan(useStore.getState(), start))
@@ -28,7 +28,7 @@ export function WeekPlanPanel() {
       {cur ? <PlanWeek plan={cur} title="This week's plan" /> : wd >= 5 ? null : (
         <section className="panel stack" style={{ gap: 10 }}>
           <Label>This week's plan</Label>
-          <p className="small muted">No plan yet. It's built from last week: gym days, cardio, rest days, posture every day.</p>
+          <p className="small muted">No plan yet. 4 gym days, a slow Sunday swim and 2 full rest days.</p>
           <button className="btn btn-outline btn-caps" onClick={() => make(ws)}>Make this week's plan</button>
         </section>
       )}
