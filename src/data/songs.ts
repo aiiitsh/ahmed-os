@@ -117,6 +117,17 @@ export const SONGS: Song[] = [
           { fr: 'colombien', en: 'Colombian' },
         ],
       },
+      {
+        fr: 'Mais le plug est antillais',
+        en: 'But the plug is from the Antilles.',
+        context: 'Pairs with the last line: the product comes from Colombia, but the dealer is from the French Caribbean.',
+        note: 'Antillais is an adjective, so no capital, just like colombien.',
+        words: [
+          { fr: 'Mais', en: 'but' },
+          { fr: 'le plug', en: 'the supplier / dealer. Borrowed from English rap slang: “the plug” = your connect.' },
+          { fr: 'antillais', en: 'from the Antilles, the French Caribbean islands like Guadeloupe and Martinique.' },
+        ],
+      },
     ],
   },
 ]
