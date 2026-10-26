@@ -70,6 +70,18 @@ export const SONGS: Song[] = [
           { fr: "d'avant", en: 'from before, as in le moi d’avant.' },
         ],
       },
+      {
+        fr: 'Tu vas te détruire en bédavant',
+        en: 'You’re going to destroy yourself smoking.',
+        context: 'A warning to his past self: smoking weed will wreck him. 💭',
+        note: 'En + -ant is the gérondif: it means “while” or “by” doing something. En mangeant = while eating.',
+        words: [
+          { fr: 'Tu vas', en: 'you are going to. Aller + infinitive = the near future.' },
+          { fr: 'te détruire', en: 'to destroy yourself. Détruire = to destroy, te = yourself (reflexive).' },
+          { fr: 'en bédavant', en: 'while / by smoking (the gérondif of bédaver).' },
+          { fr: 'bédaver', en: 'slang for to smoke, usually weed. It comes from Romani and is common in French rap.' },
+        ],
+      },
     ],
   },
 ]
