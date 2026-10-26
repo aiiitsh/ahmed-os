@@ -60,7 +60,7 @@ export function SongCards({ song }: { song: Song }) {
             <Label>English</Label>
             <div className="flash-en">{card.en}</div>
             {card.context && <p className="small muted" style={{ lineHeight: 1.5 }}>{card.context}</p>}
-            {card.note && <p className="small strong" style={{ lineHeight: 1.5 }}>{card.note}</p>}
+            {card.note && <p className="small strong" style={{ lineHeight: 1.5, whiteSpace: 'pre-line' }}>{card.note}</p>}
             <div className="flash-words">
               {card.words.map((w) => (
                 <div key={w.fr} className="li"><span className="flash-word">{w.fr}</span><span className="small grow">{w.en}</span></div>

@@ -57,7 +57,11 @@ export const SONGS: Song[] = [
         fr: "Ils vont pas rester les potos d'avant",
         en: 'They won’t stay the buddies from before.',
         context: 'Friends change and drift apart: the people around you won’t stay the same. 💭',
-        note: 'Spoken French drops the ne. The proper form is Ils ne vont pas rester.',
+        note: 'Why just pas? The full written form is ne + verb + pas, but in everyday spoken French people almost always drop the ne.\n'
+          + 'Written: Je ne sais pas → spoken: Je sais pas (J’sais pas, Chais pas).\n'
+          + 'Written: Ils ne vont pas rester → spoken: Ils vont pas rester.\n'
+          + 'The pas stays because it carries the “not”; the ne is short and unstressed, so it gets swallowed in fast speech. Songs, and rap especially, sound like real talk.\n'
+          + 'Tip: understand both, but always keep the ne in writing and exams.',
         words: [
           { fr: 'Ils vont', en: 'they are going to. Aller + infinitive = the near future.' },
           { fr: 'pas', en: 'not (the ne is dropped in speech)' },
