@@ -59,8 +59,13 @@ export function SongCards({ song }: { song: Song }) {
           <div className="flash-face back">
             <Label>English</Label>
             <div className="flash-en">{card.en}</div>
-            {card.note && <p className="small muted" style={{ lineHeight: 1.5 }}>{card.note}</p>}
-            <span className="mono dim small">{card.fr}</span>
+            {card.context && <p className="small muted" style={{ lineHeight: 1.5 }}>{card.context}</p>}
+            {card.note && <p className="small strong" style={{ lineHeight: 1.5 }}>{card.note}</p>}
+            <div className="flash-words">
+              {card.words.map((w) => (
+                <div key={w.fr} className="li"><span className="flash-word">{w.fr}</span><span className="small grow">{w.en}</span></div>
+              ))}
+            </div>
           </div>
           <div className="flash-src mono">♪ {song.title} · {song.artist}</div>
         </button>
