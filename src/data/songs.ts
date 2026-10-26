@@ -26,6 +26,11 @@ export const SONGS: Song[] = [
       { fr: 'au', en: 'to the (à + le)', note: 'French always merges à + le into au. Je vais au cinéma.' },
       { fr: 'le moi', en: 'the me · myself', note: 'Moi used as a noun: “my self”.' },
       { fr: "d'avant", en: 'from before', note: 'Works like an adjective. Le monde d’avant = the world from before.' },
+      { fr: "Le prévenir de ce qui l'attend", en: 'To warn him about what awaits him.', note: 'Him = the past self. Ce qui l’attend sounds just like “ce qu’il l’attend” when sung.' },
+      { fr: 'prévenir', en: 'to warn', note: 'Prévenir quelqu’un de quelque chose = to warn someone about something.' },
+      { fr: 'le prévenir', en: 'to warn him', note: 'Le = him (here, the me from before). The object pronoun goes before the verb.' },
+      { fr: 'ce qui', en: 'what (as the subject)', note: 'Ce qui is the subject of the next verb: ce qui l’attend = what awaits him. Sounds like ce qu’il.' },
+      { fr: "l'attend", en: 'awaits him', note: 'From attendre (to wait for / await). L’ = le = him.' },
     ],
   },
 ]
