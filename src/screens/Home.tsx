@@ -64,7 +64,7 @@ function WeekPanel() {
   const meters = [
     { k: 'TRAIN', v: `${w.workouts.length}/${GOALS.sessions}`, p: w.workouts.length / GOALS.sessions },
     { k: 'FOCUS', v: fmtDur(w.fo.total), p: w.fo.total / 60 / GOALS.focusHours },
-    { k: 'CORE ROUTINE', v: `${w.routineDays}/7`, p: w.routineDays / GOALS.routineDays },
+    { k: 'PROTEIN', v: `${w.proteinDays}/7`, p: w.proteinDays / GOALS.proteinDays },
   ]
   return (
     <section className="panel row" style={{ gap: 18 }}>

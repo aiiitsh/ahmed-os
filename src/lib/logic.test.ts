@@ -1,9 +1,9 @@
 import { byCategory, byWhat, cleanTag } from './focustags'
 import { describe, expect, it } from 'vitest'
-import { progress, nextSwim } from './progression'
+import { progress } from './progression'
 import { addDays, localDate, weekStart, dow } from './time'
 import { habitStats, groupSets } from './stats'
-import { trainingPlan, swimPlanFrom, dayPlan, tomorrowPreview } from './plan'
+import { trainingPlan, swimTarget, proteinOn, dayPlan, tomorrowPreview } from './plan'
 import { cardioCredit } from './activity'
 import { generateWeekPlan } from './weekplan'
 import { restAfterSet, restBetween } from './rest'
@@ -52,11 +52,11 @@ describe('progression (7.5)', () => {
 })
 
 describe('time', () => {
-  it('weeks start on Saturday', () => {
-    expect(weekStart('2026-10-10')).toBe('2026-10-10') // Sat
-    expect(weekStart('2026-10-16')).toBe('2026-10-10') // Fri
-    expect(weekStart('2026-10-17')).toBe('2026-10-17') // next Sat
-    expect(dow(weekStart('2026-03-04'))).toBe(6)
+  it('weeks start on Monday', () => {
+    expect(weekStart('2026-10-26')).toBe('2026-10-26') // Mon
+    expect(weekStart('2026-11-01')).toBe('2026-10-26') // Sun
+    expect(weekStart('2026-11-02')).toBe('2026-11-02') // next Mon
+    expect(dow(weekStart('2026-03-04'))).toBe(1)
   })
   it('local date is Toronto, not UTC', () => {
     // 2026-10-11 02:30 UTC = 2026-10-10 22:30 EDT
@@ -109,25 +109,28 @@ describe('muscle credit (7.4)', () => {
   })
 })
 
-describe('swim intervals', () => {
-  const cur = { rest_s: 45, target_min: 20 }
-  it('hitting the target on moderate cuts rest and raises the target', () => {
-    expect(nextSwim(cur, { minutes: 22, rest_s: 45, intensity: 'moderate' })).toEqual({ rest_s: 40, target_min: 24 })
-  })
-  it('easy always cuts rest by 10 s', () => {
-    expect(nextSwim(cur, { minutes: 15, rest_s: 45, intensity: 'easy' })).toEqual({ rest_s: 35, target_min: 20 })
-  })
-  it('intense and short of target adds rest, keeps target', () => {
-    expect(nextSwim(cur, { minutes: 12, rest_s: 45, intensity: 'intense' })).toEqual({ rest_s: 50, target_min: 20 })
-  })
-  it('rest stays within 15–90 s', () => {
-    expect(nextSwim({ rest_s: 15, target_min: 10 }, { minutes: 30, rest_s: 15, intensity: 'easy' }).rest_s).toBe(15)
+describe('swim distance', () => {
+  const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
+  const swim = (d: string, meters: number, target_m: number) => ({ id: d, user_id: 'u', logged_at: `${d}T15:00:00Z`, local_date: d, type: 'cardio' as const, data: { sport: 'swim', minutes: 35, meters, target_m } })
+  it('starts at 800 m', () => expect(swimTarget(base())).toBe(800))
+  it('adds 100 m after making the target', () => expect(swimTarget({ ...base(), logs: [swim('2026-11-01', 800, 800)] })).toBe(900))
+  it('repeats the target when short of it', () => expect(swimTarget({ ...base(), logs: [swim('2026-11-01', 700, 900)] })).toBe(900))
+  it('caps at 1,500 m', () => expect(swimTarget({ ...base(), logs: [swim('2026-11-01', 1500, 1500)] })).toBe(1500))
+})
+
+describe('protein', () => {
+  const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
+  const p = (d: string, g: number, id: string) => ({ id, user_id: 'u', logged_at: `${d}T15:00:00Z`, local_date: d, type: 'protein' as const, data: { g } })
+  it('adds up the day', () => {
+    const data = { ...base(), logs: [p('2026-10-26', 30, 'a'), p('2026-10-26', 45, 'b'), p('2026-10-25', 99, 'c')] }
+    expect(proteinOn(data, '2026-10-26')).toBe(75)
+    expect(dayPlan(data, '2026-10-26').find((i) => i.key === 'protein')).toMatchObject({ sub: '75 / 125 g today', done: false })
   })
 })
 
 describe('dynamic plan', () => {
   const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
-  const wo = (d: string, code: 'A' | 'B' | 'C') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
+  const wo = (d: string, code: 'A' | 'B' | 'C' | 'D') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
   const log = (d: string, data: any) => ({ id: d + data.sport, user_id: 'u', logged_at: `${d}T15:00:00Z`, local_date: d, type: 'cardio' as const, data })
 
   it('picks the day never done (C)', () => {
@@ -137,7 +140,7 @@ describe('dynamic plan', () => {
   it('skips Day C the day after a long hike', () => {
     const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')], logs: [log('2026-10-18', { sport: 'hike', km: 21, minutes: 330 })] }
     const p = trainingPlan(data, '2026-10-19')
-    expect(p.day).toBe('B')
+    expect(p.day).toBe('D') // C waits, D has never been done
     expect(p.state).toBe('rest') // a 21 km hike yesterday means rest
     expect(p.why).toMatch(/rest today/)
   })
@@ -148,10 +151,6 @@ describe('dynamic plan', () => {
   it('is done once trained today', () => {
     const data = { ...base(), workouts: [wo('2026-10-19', 'C')] }
     expect(trainingPlan(data, '2026-10-19')).toMatchObject({ state: 'done', doneDay: 'C' })
-  })
-  it('next swim comes from the last swim actually logged (120 s intense on target → stays 120 s)', () => {
-    const data = { ...base(), logs: [log('2026-10-14', { sport: 'swim', minutes: 25, intensity: 'intense', rest_s: 120, target_min: 20 })] }
-    expect(swimPlanFrom(data)).toEqual({ rest_s: 120, target_min: 27 })
   })
 })
 
@@ -166,14 +165,12 @@ describe('pounds', () => {
 
 describe('activity-aware plan', () => {
   const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
-  const wo = (d: string, code: 'A' | 'B' | 'C') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
+  const wo = (d: string, code: 'A' | 'B' | 'C' | 'D') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
   const log = (d: string, data: any) => ({ id: d + data.sport, user_id: 'u', logged_at: `${d}T15:00:00Z`, local_date: d, type: 'cardio' as const, data })
 
-  it('squash yesterday: no "go swim", cardio optional, legs rest', () => {
+  it('squash yesterday: no cardio nudge today, legs rest', () => {
     const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')], logs: [log('2026-10-20', { sport: 'squash', variant: 'match', minutes: 60 })] }
-    const cardio = dayPlan(data, '2026-10-21').find((i) => i.key === 'cardio')!
-    expect(cardio.optional).toBe(true)
-    expect(cardio.why).toMatch(/Squash yesterday/)
+    expect(dayPlan(data, '2026-10-21').find((i) => i.key === 'cardio')).toBeUndefined()
     expect(trainingPlan(data, '2026-10-21').day).not.toBe('C')
   })
   it('any cardio today marks cardio done', () => {
@@ -181,14 +178,14 @@ describe('activity-aware plan', () => {
     expect(dayPlan(data, '2026-10-21').find((i) => i.key === 'cardio')!.done).toBe(true)
   })
   it('a 21 km hike this week trims Day C to core & posture', () => {
-    const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')], logs: [log('2026-10-17', { sport: 'hike', km: 21 })] }
-    const p = trainingPlan(data, '2026-10-21')
+    const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')], logs: [log('2026-10-19', { sport: 'hike', km: 21 })] }
+    const p = trainingPlan(data, '2026-10-22')
     expect(p.day).toBe('C')
-    expect(p.skip).toEqual(['leg_curl', 'back_ext_45'])
+    expect(p.skip).toEqual(['leg_ext', 'step_down', 'leg_curl'])
   })
   it('Day C never loads the glutes', () => {
     expect(DAYS.C.keys).not.toContain('hip_thrust_machine')
-    expect(DAYS.C.keys.filter((k) => EX[k].kind === 'weighted' && k !== 'suitcase_carry')).toEqual(['leg_curl'])
+    expect(DAYS.C.keys.filter((k) => EX[k].kind === 'weighted' && k !== 'suitcase_carry')).toEqual(['leg_ext', 'leg_curl'])
   })
   it('hikes count toward glutes + hams', () => {
     expect(cardioCredit({ id: 'x', user_id: 'u', logged_at: '', local_date: '', type: 'cardio', data: { sport: 'hike', km: 21 } }).posterior).toBe(5)
@@ -197,9 +194,9 @@ describe('activity-aware plan', () => {
 
 describe('rest times', () => {
   it('base rest, longer after a Hard session, shorter after Easy', () => {
-    expect(restAfterSet(EX.db_curl, null, 10)).toBe(75)
-    expect(restAfterSet(EX.db_curl, 'hard', 10)).toBe(105)
-    expect(restAfterSet(EX.db_curl, 'easy', 10)).toBe(60)
+    expect(restAfterSet(EX.incline_curl, null, 10)).toBe(75)
+    expect(restAfterSet(EX.incline_curl, 'hard', 10)).toBe(105)
+    expect(restAfterSet(EX.incline_curl, 'easy', 10)).toBe(60)
     expect(restAfterSet(EX.dead_bug, null, 60)).toBe(60) // late in a long session: +15
     expect(restBetween(EX.skill_muscleup, null)).toBe(120)
     expect(restBetween(EX.warmup_A, null)).toBe(0)
@@ -208,7 +205,7 @@ describe('rest times', () => {
 
 describe('rest days', () => {
   const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
-  const wo = (d: string, code: 'A' | 'B' | 'C') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
+  const wo = (d: string, code: 'A' | 'B' | 'C' | 'D') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
   const log = (d: string, data: any) => ({ id: d + data.sport, user_id: 'u', logged_at: `${d}T15:00:00Z`, local_date: d, type: 'cardio' as const, data })
   it('says rest the day after a 21 km hike', () => {
     const data = { ...base(), logs: [log('2026-10-18', { sport: 'hike', km: 21 })] }
@@ -228,29 +225,27 @@ describe('rest days', () => {
 
 describe('weekly plan', () => {
   const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
-  const wo = (d: string, code: 'A' | 'B' | 'C') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
+  const wo = (d: string, code: 'A' | 'B' | 'C' | 'D') => ({ id: d + code, user_id: 'u', local_date: d, day_code: code, started_at: `${d}T21:00:00Z`, ended_at: `${d}T22:00:00Z`, skill_key: null, skill_done: false, skill_minutes: null, ended_early: false })
   const withPlan = (data: Data, plan: any): Data => ({ ...data, appState: { user_id: 'u', rotation_next: 'A', skills: {}, french_unit: 1, pending_bed_at: null, focus: null, active_session: null, streak_pin_hash: null, settings: { week_plans: { [plan.week_start]: plan } } } })
 
-  it('plans 3 gym days, 2 rest days, never Day C right after the Saturday cardio', () => {
+  it('plans Mon A · Tue C · Wed rest · Thu B · Fri rest · Sat D · Sun swim', () => {
     const data = { ...base(), workouts: [wo('2026-10-15', 'B'), wo('2026-10-16', 'A')] }
-    const p = generateWeekPlan(data, '2026-10-24')
-    expect(p.days).toHaveLength(7)
-    expect(p.days.filter((s) => s.kind === 'gym')).toHaveLength(3)
-    expect(p.days.filter((s) => s.kind === 'rest')).toHaveLength(2)
-    expect(p.days[1]).not.toEqual({ kind: 'gym', day: 'C' }) // Sunday follows Saturday cardio
-    expect(new Set(p.days.filter((s) => s.kind === 'gym').map((s) => s.day))).toEqual(new Set(['A', 'B', 'C']))
+    const p = generateWeekPlan(data, '2026-10-26')
+    expect(p.days).toEqual([
+      { kind: 'gym', day: 'A' }, { kind: 'gym', day: 'C' }, { kind: 'rest' }, { kind: 'gym', day: 'B' },
+      { kind: 'rest' }, { kind: 'gym', day: 'D' }, { kind: 'swim' },
+    ])
   })
-  it('today follows the plan: a planned run day is not a gym day', () => {
-    const plan = { week_start: '2026-10-24', created_at: '', why: [], days: [{ kind: 'run' }, { kind: 'gym', day: 'B' }, { kind: 'swim' }, { kind: 'gym', day: 'C' }, { kind: 'rest' }, { kind: 'gym', day: 'A' }, { kind: 'rest' }] }
-    const data = withPlan(base(), plan)
-    expect(trainingPlan(data, '2026-10-24')).toMatchObject({ state: 'off' })
-    expect(trainingPlan(data, '2026-10-25')).toMatchObject({ state: 'go', day: 'B' })
+  it('Monday after a Sunday swim is still Day A', () => {
+    const data = { ...withPlan(base(), generateWeekPlan(base(), '2026-10-26')), logs: [{ id: 's', user_id: 'u', logged_at: '2026-10-25T15:00:00Z', local_date: '2026-10-25', type: 'cardio' as const, data: { sport: 'swim', minutes: 45, intensity: 'intense', rest_s: 45 } }] }
+    expect(trainingPlan(data, '2026-10-26')).toMatchObject({ state: 'go', day: 'A' })
     expect(trainingPlan(data, '2026-10-28')).toMatchObject({ state: 'rest' })
+    expect(trainingPlan(data, '2026-11-01')).toMatchObject({ state: 'off' })
   })
   it('a planned Day C after a surprise squash game switches to upper body', () => {
-    const plan = { week_start: '2026-10-24', created_at: '', why: [], days: [{ kind: 'cardio' }, { kind: 'gym', day: 'C' }, { kind: 'swim' }, { kind: 'gym', day: 'B' }, { kind: 'rest' }, { kind: 'gym', day: 'A' }, { kind: 'rest' }] }
-    const data = { ...withPlan(base(), plan), logs: [{ id: 's', user_id: 'u', logged_at: '2026-10-24T15:00:00Z', local_date: '2026-10-24', type: 'cardio' as const, data: { sport: 'squash', minutes: 40 } }] }
-    const p = trainingPlan(data, '2026-10-25')
+    const plan = { week_start: '2026-10-26', created_at: '', why: [], days: [{ kind: 'rest' }, { kind: 'gym', day: 'C' }, { kind: 'rest' }, { kind: 'gym', day: 'B' }, { kind: 'rest' }, { kind: 'gym', day: 'D' }, { kind: 'swim' }] }
+    const data = { ...withPlan(base(), plan), logs: [{ id: 's', user_id: 'u', logged_at: '2026-10-26T15:00:00Z', local_date: '2026-10-26', type: 'cardio' as const, data: { sport: 'squash', minutes: 40 } }] }
+    const p = trainingPlan(data, '2026-10-27')
     expect(p.day).not.toBe('C')
     expect(p.why).toMatch(/Plan said Day C/)
   })

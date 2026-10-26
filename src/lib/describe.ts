@@ -8,6 +8,9 @@ export function describeLog(l: Log): { icon: string; text: string } {
   const d = l.data
   switch (l.type) {
     case 'cardio': {
+      if (d.sport === 'swim' && d.meters) {
+        return { icon: 'swim', text: `Swim · ${d.meters} m · ${d.minutes} min` }
+      }
       if (d.sport === 'swim' && d.intensity) {
         return { icon: 'swim', text: `Swim · ${d.minutes} min · ${d.intensity}${d.rest_s != null ? ` · rest ${d.rest_s} s` : ''}` }
       }
@@ -23,7 +26,7 @@ export function describeLog(l: Log): { icon: string; text: string } {
     case 'flag':
       return { icon: 'back', text: 'Lower back felt tight' }
     case 'protein':
-      return { icon: 'protein', text: 'Protein hit' }
+      return { icon: 'protein', text: d.g ? `Protein · +${d.g} g${d.what ? ` · ${d.what}` : ''}` : 'Protein hit' }
     case 'quran':
       return { icon: 'quran', text: `Quran · Juz ${d.juz} · ${d.mode === 'memorize' ? 'memorized' : 'revised'}` }
     case 'french':

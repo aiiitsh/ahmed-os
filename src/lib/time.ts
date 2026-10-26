@@ -1,4 +1,4 @@
-// Every "day" is the local date in America/Toronto. Weeks run Saturday → Friday.
+// Every "day" is the local date in America/Toronto. Weeks run Monday → Sunday.
 export const TZ = 'America/Toronto'
 
 const dateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -43,9 +43,9 @@ export function dow(d: string): number {
   return new Date(toUTC(d)).getUTCDay()
 }
 
-/** The Saturday that starts the week containing d. */
+/** The Monday that starts the week containing d. */
 export function weekStart(d: string = localDate()): string {
-  return addDays(d, -((dow(d) - 6 + 7) % 7))
+  return addDays(d, -((dow(d) + 6) % 7))
 }
 
 export function weekDays(start: string): string[] {
@@ -63,7 +63,7 @@ const MON = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT
 export const dowShort = (d: string) => DOW[dow(d)]
 export const monShort = (d: string) => MON[+d.slice(5, 7) - 1]
 
-/** 'SAT 10 OCT' */
+/** 'MON 26 OCT' */
 export function fmtDay(d: string): string {
   return `${dowShort(d)} ${+d.slice(8, 10)} ${monShort(d)}`
 }

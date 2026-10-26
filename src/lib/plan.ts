@@ -1,18 +1,17 @@
 // The daily plan adapts to what you actually did: which training day is most overdue, what your
 // hikes, runs, squash and swims already worked, and when you need recovery.
-import { DAYS, EX, GOALS, SWIM_DEFAULT } from '../data/program'
+import { DAYS, DAY_ORDER, EX, GOALS, PROTEIN_G, SWIM } from '../data/program'
 import type { Data } from './store'
 import type { DayCode, Log } from './types'
 import { addDays, daysBetween, localDate, weekStart } from './time'
 import { focusStats } from './stats'
-import { nextSwim } from './progression'
-import { WORKS, activityLoad, describeCardio, sportLabel } from './activity'
+import { activityLoad, describeCardio } from './activity'
 import { SLOT_LABEL, slotOn } from './weekplan'
 import type { PlanSlot } from './types'
 
 export type PlanAction =
   | { kind: 'session'; day: DayCode }
-  | { kind: 'sheet'; sheet: 'swim' | 'routine' | 'quran' | 'french' | 'focus' | 'hike' | 'cardio' }
+  | { kind: 'sheet'; sheet: 'swim' | 'routine' | 'quran' | 'french' | 'focus' | 'hike' | 'cardio' | 'protein' }
 
 export interface PlanItem {
   key: string
@@ -69,12 +68,6 @@ function legsCoveredThisWeek(data: Data, d: string): string | null {
   return null
 }
 
-/** Yesterday's hard swim already worked back and shoulders. */
-function pullTired(data: Data, d: string): string | null {
-  const swim = onDay(data.logs, d).find((l) => isCardio(l, 'swim') && l.data.intensity === 'intense' && Number(l.data.minutes) >= 25)
-  return swim ? 'yesterday’s hard swim worked your back and shoulders' : null
-}
-
 /** Effort score for a day: a gym session is ~3, a 21 km hike ~5, a 60 min squash game ~3. */
 export function dayLoad(data: Data, d: string): number {
   const gym = data.workouts.filter((w) => w.local_date === d).length * 3
@@ -88,25 +81,30 @@ export function restReason(data: Data, d: string): string | null {
   if (y >= 5) {
     const hike = onDay(data.logs, addDays(d, -1)).find((l) => isCardio(l, 'hike'))
     return hike
-      ? `Ahmed, rest today. A ${hike.data.km} km hike is a huge day; training on top of it leaves you flat for days. Just the 6-min routine and an easy walk.`
+      ? `Ahmed, rest today. A ${hike.data.km} km hike is a huge day; training on top of it leaves you flat for days. An easy walk at most.`
       : 'Ahmed, rest today. Yesterday was a very big day; let your body recover so you come back stronger.'
   }
-  if (y >= 3 && y2 >= 3) return 'Ahmed, rest today. Two hard days in a row: recovery is where you get stronger. Routine + easy walk only.'
+  if (y >= 3 && y2 >= 3) return 'Ahmed, rest today. Two hard days in a row: recovery is where you get stronger. An easy walk at most.'
   const active = [1, 2, 3, 4, 5, 6].filter((k) => dayLoad(data, addDays(d, -k)) >= 2).length
   if (active >= 5) return `Ahmed, rest today. You were active ${active} of the last 6 days; take a full day off to avoid burning out.`
   return null
 }
 
-/** Next swim: derived from the last logged swim (rest actually used + how it felt), so it self-corrects. */
-export function swimPlanFrom(data: Data) {
-  const last = [...data.logs].filter((l) => isCardio(l, 'swim') && l.data.rest_s != null && l.data.intensity)
+/** Next swim distance: last swim's metres + 100 when you swam at least the target (up to 1,500 m). */
+export function swimTarget(data: Data): number {
+  const last = [...data.logs].filter((l) => isCardio(l, 'swim') && Number(l.data.meters) > 0)
     .sort((a, b) => a.logged_at.localeCompare(b.logged_at)).at(-1)
-  if (!last) return data.appState?.settings?.swim ?? SWIM_DEFAULT
-  return nextSwim(
-    { rest_s: Number(last.data.rest_s), target_min: Number(last.data.target_min ?? last.data.minutes) },
-    { minutes: Number(last.data.minutes), rest_s: Number(last.data.rest_s), intensity: last.data.intensity },
-  )
+  if (!last) return SWIM.start_m
+  const m = Number(last.data.meters)
+  const tgt = Number(last.data.target_m) || SWIM.start_m
+  return Math.min(SWIM.max_m, m >= tgt ? m + SWIM.step_m : tgt)
 }
+
+/** Today's protein, grams. */
+export function proteinOn(data: Data, d: string): number {
+  return onDay(data.logs, d).filter((l) => l.type === 'protein').reduce((a, l) => a + (Number(l.data.g) || 0), 0)
+}
+export const proteinGoal = (data: Data) => data.appState?.settings?.protein_g ?? PROTEIN_G
 
 /**
  * Which training day to do on `d`: the most overdue of A/B/C (never done first), avoiding the day whose
@@ -116,15 +114,14 @@ export function swimPlanFrom(data: Data) {
 export function trainingPlan(data: Data, d = localDate()): TrainingPlan {
   const before = data.workouts.filter((w) => w.local_date < d)
   const last = (code: DayCode) => before.filter((w) => w.day_code === code).map((w) => w.local_date).sort().at(-1) ?? null
-  const order = (['A', 'B', 'C'] as DayCode[]).map((code) => ({ code, last: last(code) }))
+  const order = (DAY_ORDER as DayCode[]).map((code) => ({ code, last: last(code) }))
     .sort((a, b) => (a.last === b.last ? 0 : a.last == null ? -1 : b.last == null ? 1 : a.last.localeCompare(b.last)))
 
   const todays = data.workouts.filter((w) => w.local_date === d)
   if (todays.length) return { state: 'done', day: order[0].code, doneDay: todays[todays.length - 1].day_code, why: 'Done for today.', skip: [] }
 
   const legs = legsTired(data, addDays(d, -1))
-  const pull = pullTired(data, addDays(d, -1))
-  const blocked = (c: DayCode) => (c === 'C' && legs) || (c === 'A' && pull)
+  const blocked = (c: DayCode) => c === 'C' && !!legs
   const rest = restReason(data, d)
   const slot = slotOn(data, d)
 
@@ -149,8 +146,7 @@ export function trainingPlan(data: Data, d = localDate()): TrainingPlan {
     : pick.last == null ? `Day ${pick.code} hasn't been done yet`
     : `Day ${pick.code} is the most overdue (last ${daysBetween(pick.last, d)} days ago)`
   if (pick.code !== top.code) {
-    why = top.code === 'C' ? `${slot?.day ? 'Plan said Day C' : 'Day C waits'}: ${legs}. ${pick.code === 'A' ? 'Pull & arms' : 'Push & core'} instead.`
-      : `${slot?.day ? 'Plan said Day A' : 'Day A waits'}: ${pull}. Day ${pick.code} instead.`
+    why = `${slot?.day ? 'Plan said Day C' : 'Day C waits'}: ${legs}. Day ${pick.code} (${DAYS[pick.code].name}) instead.`
   }
 
   // Day C after a week of hiking: keep the core & posture work, drop the leg machines.
@@ -169,56 +165,43 @@ export function trainingPlan(data: Data, d = localDate()): TrainingPlan {
 
 export function dayPlan(data: Data, d = localDate()): PlanItem[] {
   const logs = onDay(data.logs, d)
-  const yesterday = onDay(data.logs, addDays(d, -1))
   const items: PlanItem[] = []
 
-  // Posture every day: inside the session on gym days, a gentle 8-min reset on other days.
+  // Stretches live inside the gym session. Rest days are real rest: nothing to do.
   const slot = slotOn(data, d)
   const trainedToday = data.workouts.some((w) => w.local_date === d)
-  const routineDone = logs.some((l) => l.type === 'stretch' && l.data.which === 'daily_routine')
   if (trainedToday || slot?.kind === 'gym') {
     items.push({
-      key: 'routine', icon: 'hollow', title: 'Posture', sub: 'In your warm-up and cool-down today',
-      why: trainedToday ? undefined : 'Done as part of the gym session: no extra stretching needed.',
-      done: trainedToday || routineDone,
-    })
-  } else {
-    items.push({
-      key: 'routine', icon: 'hollow', title: 'Posture reset', sub: '8 min · gentle · activation + light stretches',
-      why: 'Every non-gym day. Gentle (4/10), so it fixes posture without leaving you sore.',
-      done: routineDone, action: { kind: 'sheet', sheet: 'routine' },
+      key: 'routine', icon: 'hollow', title: 'Stretches', sub: 'In your warm-up and cool-down today',
+      why: trainedToday ? undefined : 'Part of the gym session: no extra stretching needed.',
+      done: trainedToday,
     })
   }
 
-  // Cardio: any activity counts. Suggest a swim only when nothing was done lately.
+  // Swim on its planned day (slow and long). Anything else only shows once it's logged.
   const cardioToday = logs.filter((l) => isCardio(l))
-  const cardioYesterday = yesterday.filter((l) => isCardio(l))
-  const lastCardio = data.logs.filter((l) => isCardio(l) && l.local_date < d).map((l) => l.local_date).sort().at(-1)
-  const since = lastCardio ? daysBetween(lastCardio, d) : null
-  const plan = swimPlanFrom(data)
-  let why: string | undefined
-  let optional = false
-  const resting = !!restReason(data, d) || slot?.kind === 'rest'
-  const plannedCardio = slot && slot.kind !== 'gym' && slot.kind !== 'rest' ? slot.kind : null
-  if (!cardioToday.length) {
-    if (resting) { optional = true; why = 'Rest day: an easy walk or a gentle swim at most.' }
-    else if (plannedCardio) why = `Planned for today: ${SLOT_LABEL[plannedCardio].toLowerCase()}${plannedCardio === 'cardio' ? ' (run, hike, squash or swim)' : ''}.`
-    else if (slot) { optional = true; why = 'Not planned today. Only if you feel like it.' }
-    else if (cardioYesterday.length) {
-      const y = cardioYesterday[0]
-      optional = true
-      why = y.data.sport === 'hike'
-        ? `You hiked yesterday (${WORKS.hike}). Rest, or an easy swim to loosen up.`
-        : `${sportLabel(y.data.sport)} yesterday already worked ${WORKS[y.data.sport] ?? 'you'}. Optional today.`
-    } else if (since == null) why = 'Swim if you can get to the pool, or any cardio you like.'
-    else if (since >= 2) why = `Last cardio ${since} days ago. Swim if you can.`
-    else { optional = true; why = 'Optional today.' }
+  const swimDay = slot?.kind === 'swim' || slot?.kind === 'cardio'
+  if (cardioToday.length) {
+    items.push({
+      key: 'cardio', icon: cardioToday[0].data.sport ?? 'swim', title: cardioToday.some((l) => l.data.sport === 'swim') ? 'Swim' : 'Cardio',
+      sub: `✓ ${cardioToday.map(describeCardio).join(' · ')}`, done: true, action: { kind: 'sheet', sheet: 'cardio' },
+    })
+  } else if (swimDay) {
+    const resting = restReason(data, d)
+    items.push({
+      key: 'cardio', icon: 'swim', title: 'Swim · planned', sub: `${swimTarget(data)} m slow · 30–40 min · freestyle + backstroke`,
+      why: resting ? `${resting} Skip the swim or keep it very easy.` : 'Slow and long, for posture. If you get out more tired than you got in, it was too hard.',
+      done: false, optional: !!resting, action: { kind: 'sheet', sheet: 'swim' },
+    })
   }
+
+  // Protein: the one food number to track.
+  const g = proteinOn(data, d)
+  const goal = proteinGoal(data)
   items.push({
-    key: 'cardio', icon: cardioToday[0]?.data.sport === 'hike' ? 'hike' : cardioToday[0]?.data.sport ?? 'swim',
-    title: cardioToday.length ? 'Cardio' : plannedCardio ? `${SLOT_LABEL[plannedCardio]} · planned` : 'Cardio · swim',
-    sub: cardioToday.length ? `✓ ${cardioToday.map(describeCardio).join(' · ')}` : `25 m sprints · rest ${plan.rest_s} s · aim ${plan.target_min} min`,
-    why, done: cardioToday.length > 0, optional, action: { kind: 'sheet', sheet: 'cardio' },
+    key: 'protein', icon: 'protein', title: 'Protein', sub: `${g} / ${goal} g today`,
+    why: g >= goal ? undefined : 'About 30 g at each of 4 meals.',
+    done: g >= goal, action: { kind: 'sheet', sheet: 'protein' },
   })
 
   // Focus.
@@ -249,11 +232,13 @@ export function tomorrowPreview(data: Data, today = localDate()): string[] {
   const t = addDays(today, 1)
   const tp = trainingPlan(data, t)
   const out: string[] = []
-  out.push(tp.state === 'rest' ? 'REST DAY: routine + easy walk only. Don’t train.'
+  out.push(tp.state === 'rest' ? 'REST DAY: an easy walk at most. Don’t train.'
     : tp.state === 'off' ? `${SLOT_LABEL[tp.slot!.kind]} day (no gym)`
     : `Day ${tp.day} · ${DAYS[tp.day].name}${tp.skip.length ? ' (core & posture only)' : ''}`)
   const cardioToday = onDay(data.logs, today).filter((l) => isCardio(l))
-  if (tp.state !== 'off') out.push(cardioToday.length ? `Cardio optional (you did ${cardioToday.map(describeCardio).join(', ')} today)` : tp.slot ? 'No cardio planned' : 'Swim if you can')
+  if (tp.state === 'off' && tp.slot?.kind === 'swim') out.push(`${swimTarget(data)} m slow, in the morning`)
+  else if (tp.state === 'go' && tp.day !== 'D' && tp.slot) out.push('After work: snack at 16:00, gym around 17:45')
+  if (cardioToday.length && tp.state === 'go' && tp.day === 'C') out.push(`Legs check: you did ${cardioToday.map(describeCardio).join(', ')} today`)
   const tired = legsTired(data, today)
   if (tired) out.push(`Legs rest: ${tired.replace(' yesterday', ' today')}`)
   return out

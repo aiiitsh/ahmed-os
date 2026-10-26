@@ -1,8 +1,8 @@
-import { EX, GOALS, GROUPS } from '../data/program'
+import { EX, GOALS, GROUPS, PROTEIN_G } from '../data/program'
 import type { Data } from './store'
 import type { Group, HabitEntry, Log, Workout, WorkoutSet, FocusBlock } from './types'
 import { cardioCredit } from './activity'
-import { addDays, daysBetween, dow, inWeek, localDate, minutesBetween, weekDays } from './time'
+import { addDays, daysBetween, dow, inWeek, localDate, minutesBetween, weekDays, weekStart } from './time'
 
 // ---------- muscle credit ----------
 
@@ -131,16 +131,21 @@ export function weekStats(data: Data, start: string) {
   const frenchMin = french.reduce((a, l) => a + (l.data.minutes || 0), 0)
 
   const fo = focusStats(focus)
-  const byDayCode = { A: 0, B: 0, C: 0 }
+  const byDayCode = { A: 0, B: 0, C: 0, D: 0 }
   for (const w of workouts) byDayCode[w.day_code]++
 
   const quranDays = new Set(quran.map((e) => e.local_date)).size
   const routineDays = new Set(byType('stretch').filter((l) => l.data.which === 'daily_routine').map((l) => l.local_date)).size
-  // Ring = training, focus and the daily routine. Quran/French have no targets.
+  const proteinGoal = data.appState?.settings?.protein_g ?? PROTEIN_G
+  const proteinByDay = new Map<string, number>()
+  for (const l of byType('protein')) proteinByDay.set(l.local_date, (proteinByDay.get(l.local_date) ?? 0) + (Number(l.data.g) || 0))
+  const proteinDays = [...proteinByDay.values()].filter((g) => g >= proteinGoal).length
+  const proteinAvg = proteinByDay.size ? Math.round([...proteinByDay.values()].reduce((a, b) => a + b, 0) / proteinByDay.size) : 0
+  // Ring = training, focus and protein. Quran/French have no targets.
   const ring = [
     Math.min(1, workouts.length / GOALS.sessions),
     Math.min(1, fo.total / 60 / GOALS.focusHours),
-    Math.min(1, routineDays / GOALS.routineDays),
+    Math.min(1, proteinDays / GOALS.proteinDays),
   ]
 
   return {
@@ -149,7 +154,7 @@ export function weekStats(data: Data, start: string) {
     cardio: byType('cardio'),
     stretches: byType('stretch'),
     hipFlexor: byType('stretch').filter((l) => l.data.which === 'hip_flexors' || l.data.which === 'daily_routine').length,
-    routineDays,
+    routineDays, proteinDays, proteinAvg, proteinGoal,
     swims: byType('cardio').filter((l) => l.data.sport === 'swim'),
     hikes: byType('cardio').filter((l) => l.data.sport === 'hike'),
     flags: byType('flag'),
@@ -171,27 +176,26 @@ export function insights(w: WeekStats, prev: WeekStats, extra: { streak?: { now:
   const out: Insight[] = []
   const n = w.workouts.length
   const g = w.groups
-  out.push(n < 3
-    ? { bad: true, text: `Only ${n} session${n === 1 ? '' : 's'}. Aim for 3–4 (A, B, C + one more).` }
+  out.push(n < 4
+    ? { bad: true, text: `${n} session${n === 1 ? '' : 's'} of 4 (A, C, B, D).` }
     : { bad: false, text: `${n} sessions. Solid week.` })
   out.push(g.arms < 12
     ? { bad: true, text: `Arms got ${sets(g.arms)}. Big arms needs 12–20.` }
     : { bad: false, text: `Arms got ${sets(g.arms)}. In range.` })
   if (g.pull > 1.6 * g.push && g.pull > 0) out.push({ bad: true, text: `Pull ${fmt1(g.pull)} vs push ${fmt1(g.push)}: pull-heavy. Keep planche days in.` })
-  else if (g.push > 1.6 * g.pull && g.push > 0) out.push({ bad: true, text: `Push ${fmt1(g.push)} vs pull ${fmt1(g.pull)}: push-heavy. Tight chest, so watch it.` })
+  else if (g.push > 1.6 * g.pull && g.push > 0) out.push({ bad: true, text: `Push ${fmt1(g.push)} vs pull ${fmt1(g.pull)}: push-heavy. Keep the rows in, for posture.` })
   else if (g.push + g.pull > 0) out.push({ bad: false, text: `Push/pull balanced (${fmt1(g.push)} / ${fmt1(g.pull)}).` })
-  if (g.posterior === 0 || w.byDayCode.C === 0) out.push({ bad: true, text: 'No posture day. Hamstrings and lower abs pull your pelvis back into place.' })
+  if (g.posterior === 0 || w.byDayCode.C === 0) out.push({ bad: true, text: 'No Day C. Hamstrings, quads and lower abs pull your pelvis and knees into place.' })
   out.push(g.core < 14
     ? { bad: true, text: `Core got ${sets(g.core)}. Core is priority #1: aim for 14–24.` }
     : { bad: false, text: `Core got ${sets(g.core)}. On target.` })
-  out.push(w.routineDays < 5
-    ? { bad: true, text: `Daily core & posture routine on ${w.routineDays}/7 days. Aim for 5+.` }
-    : { bad: false, text: `Daily core & posture routine on ${w.routineDays}/7 days.` })
-  if (w.hipFlexor < 2) out.push({ bad: true, text: `Hip flexors stretched ${w.hipFlexor}×. At least 2× a week for APT.` })
-  const longest = (xs: Log[]) => Math.max(0, ...xs.map((l) => Number(l.data.minutes) || 0))
+  out.push(w.proteinDays < GOALS.proteinDays
+    ? { bad: true, text: `Protein hit ${w.proteinGoal} g on ${w.proteinDays}/7 days (average ${w.proteinAvg} g on tracked days). Aim for ${GOALS.proteinDays}+.` }
+    : { bad: false, text: `Protein hit ${w.proteinGoal} g on ${w.proteinDays}/7 days.` })
+  const longest = (xs: Log[]) => Math.max(0, ...xs.map((l) => Number(l.data.meters) || 0))
   if (w.swims.length || prev.swims.length) {
     const a = longest(w.swims), b = longest(prev.swims)
-    out.push({ bad: a < b, text: `Longest swim ${a} min (last week ${b}). ${w.swims.length} swim${w.swims.length === 1 ? '' : 's'}.` })
+    out.push({ bad: a < b, text: `Longest swim ${a} m (last week ${b} m). ${w.swims.length} swim${w.swims.length === 1 ? '' : 's'}.` })
   }
   if (w.hardPct > 0.5) out.push({ bad: true, text: 'Lots of Hard. Hold weights next week / deload.' })
   if (w.flags.length >= 2) out.push({ bad: true, text: `Back felt tight ${w.flags.length} times. Check which days.` })
@@ -218,13 +222,8 @@ export { fmt1 }
 
 export function reminders(data: Data, today = localDate()): string[] {
   const out: string[] = []
-  const hip = data.logs.filter((l) => l.type === 'stretch' && (l.data.which === 'hip_flexors' || l.data.which === 'daily_routine')).map((l) => l.local_date).sort()
-  const lastHip = hip.at(-1)
-  const since = lastHip ? daysBetween(lastHip, today) : null
-  if (since != null && since >= 3) out.push(`Hip flexors: ${since} days`)
-  const wd = dow(today)
-  const start = addDays(today, -((wd - 6 + 7) % 7))
-  if ((wd === 4 || wd === 5) && !data.workouts.some((w) => w.day_code === 'C' && inWeek(w.local_date, start))) {
+  const start = weekStart(today)
+  if (daysBetween(start, today) >= 3 && !data.workouts.some((w) => w.day_code === 'C' && inWeek(w.local_date, start))) {
     out.push('No Day C this week yet')
   }
   const flags = data.logs.filter((l) => l.type === 'flag' && inWeek(l.local_date, start)).length
@@ -271,6 +270,5 @@ export function focusCoach(w: WeekStats, prev: WeekStats): Insight[] {
   if (w.fo.lost >= 3) out.push({ bad: true, text: `Lost focus ${w.fo.lost}× this week. Note what pulled you away; it's usually the phone.` })
   const tot = w.fo.total, ptot = prev.fo.total
   if (ptot > 0) out.push({ bad: tot < ptot, text: `Focus ${Math.round(tot / 60 * 10) / 10} h this week vs ${Math.round(ptot / 60 * 10) / 10} h last week.` })
-  if (w.routineDays >= 4) out.push({ bad: false, text: 'The daily posture routine is a good focus primer: 6 minutes, then start the timer.' })
   return out
 }

@@ -1,4 +1,4 @@
-export type DayCode = 'A' | 'B' | 'C'
+export type DayCode = 'A' | 'B' | 'C' | 'D'
 export type Feel = 'easy' | 'good' | 'hard'
 export type Group = 'pull' | 'push' | 'arms' | 'shoulders' | 'core' | 'neck' | 'posterior'
 
@@ -62,12 +62,14 @@ export interface SwimPlan {
 }
 
 export interface Settings {
+  /** daily protein target, grams */
+  protein_g?: number
   show_streak_in_review?: boolean
   french_level?: string
   swim?: SwimPlan
   /** Streak counts clean days from here when there are no earlier entries. */
   streak_start?: string
-  /** Weekly plans by week start (Saturday). */
+  /** Weekly plans by week start (Monday; older plans are keyed by Saturday). */
   week_plans?: Record<string, WeekPlan>
   /** To-do list. */
   tasks?: Task[]

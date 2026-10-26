@@ -3,10 +3,10 @@ import { get, newId, patchApp, putRows, putTarget, removeRow, set, uid } from '.
 import { toast } from './toast'
 import { addDays, localDate, minutesBetween, nowIso, fmtDur } from './time'
 import { CARDIO, DAYS, EX, isSecs, nextDay, type Sport } from '../data/program'
-import { nextSwim, progress, type SwimDone } from './progression'
+import { progress } from './progression'
 import { restAfterSet, restBetween, unlockAudio } from './rest'
 import { surahLatin } from '../data/surahs'
-import { swimPlanFrom } from './plan'
+import { swimTarget } from './plan'
 import { cleanTag, tagLabel } from './focustags'
 import type { ActiveSession, AppState, DayCode, Feel, FocusBlock, FocusTag, HabitEntry, LifePlan, LifeStep, Log, LogType, PlanSlot, QuranEvent, StepState, Target, Task, WeekPlan, Workout, WorkoutSet } from './types'
 
@@ -45,28 +45,35 @@ export function deleteWorkout(id: string) {
 
 // ---------- swim ----------
 
+/** Next swim distance, metres. */
 export function swimPlan() {
-  return swimPlanFrom(get())
+  return { target_m: swimTarget(get()) }
 }
 
-/** Manual swim entry (done after the session); sets the next rest time and target. */
-export function logSwim(done: SwimDone, daysAgo = 0) {
+/** Manual swim entry (done after the session); next time's distance goes up 100 m when you hit the target. */
+export function logSwim(done: { meters: number; minutes: number }, daysAgo = 0) {
   const app = get().appState
   if (!app) return
   const at = agoIso(daysAgo)
-  const prevSettings = app.settings
-  const cur = swimPlan()
-  const next = nextSwim(cur, done)
+  const target_m = swimTarget(get())
   const log: Log = {
     id: newId(), user_id: app.user_id, logged_at: at, local_date: localDate(at), type: 'cardio',
-    data: { sport: 'swim', variant: 'sprints', minutes: done.minutes, intensity: done.intensity, rest_s: done.rest_s, target_min: cur.target_min },
+    data: { sport: 'swim', variant: 'technique', minutes: done.minutes, meters: done.meters, target_m },
   }
   putRows('logs', [log])
-  patchApp({ settings: { ...app.settings, swim: next } })
-  toast(`Swim saved · next: rest ${next.rest_s} s, aim ${next.target_min} min`, () => {
-    removeRow('logs', log.id)
-    patchApp({ settings: prevSettings })
-  })
+  toast(`Swim saved · next: ${swimTarget(get())} m`, () => removeRow('logs', log.id))
+}
+
+// ---------- protein ----------
+
+/** Add protein eaten today, grams. */
+export function logProtein(g: number, what?: string) {
+  const app = get().appState
+  if (!app || !g) return
+  const at = nowIso()
+  const log: Log = { id: newId(), user_id: app.user_id, logged_at: at, local_date: localDate(at), type: 'protein', data: { g, what: what ?? null } }
+  putRows('logs', [log])
+  toast(`+${g} g protein`, () => removeRow('logs', log.id))
 }
 
 // ---------- daily core & posture routine ----------
