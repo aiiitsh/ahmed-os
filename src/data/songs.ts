@@ -82,6 +82,18 @@ export const SONGS: Song[] = [
           { fr: 'bédaver', en: 'slang for to smoke, usually weed. It comes from Romani and is common in French rap.' },
         ],
       },
+      {
+        fr: "J'veux une piscine de billets",
+        en: 'I want a pool of bills.',
+        context: 'A swimming pool full of cash: dreaming of being rich. 💸',
+        note: 'J’veux = Je veux. The e of je gets swallowed in speech, like j’sais and j’suis.',
+        words: [
+          { fr: "J'veux", en: 'I want (je veux)' },
+          { fr: 'une piscine', en: 'a swimming pool' },
+          { fr: 'de', en: 'of / full of' },
+          { fr: 'des billets', en: 'banknotes, bills. Un billet is also a ticket: un billet de train.' },
+        ],
+      },
     ],
   },
 ]
