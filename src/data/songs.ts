@@ -53,6 +53,19 @@ export const SONGS: Song[] = [
           { fr: "l'attend", en: 'awaits him. From attendre, “to wait” but also “to await”: ce qui t’attend = what’s waiting for you.' },
         ],
       },
+      {
+        fr: "Ils vont pas rester les potos d'avant",
+        en: 'They won’t stay the buddies from before.',
+        context: 'Friends change and drift apart: the people around you won’t stay the same. 💭',
+        note: 'Spoken French drops the ne. The proper form is Ils ne vont pas rester.',
+        words: [
+          { fr: 'Ils vont', en: 'they are going to. Aller + infinitive = the near future.' },
+          { fr: 'pas', en: 'not (the ne is dropped in speech)' },
+          { fr: 'rester', en: 'to stay / remain. Not “to rest”!' },
+          { fr: 'les potos', en: 'buddies / homies, slang for les amis. One friend = un poto.' },
+          { fr: "d'avant", en: 'from before, as in le moi d’avant.' },
+        ],
+      },
     ],
   },
 ]
