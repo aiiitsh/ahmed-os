@@ -403,3 +403,18 @@ input[type=date].field { color-scheme: dark; }
   .life-collage { grid-template-columns: repeat(3, 1fr); }
   .life-hero { padding: 30px; }
 }
+
+/* French song flashcards (Learn → French songs) */
+.flash-deck { touch-action: pan-y; }
+.flash { position: relative; display: block; perspective: 1200px; width: 100%; min-height: 300px; border-radius: var(--r-card); text-align: center;
+  transition: transform .25s cubic-bezier(.2, .85, .25, 1); animation: fade .2s; }
+.flash.dragging { transition: none; }
+.flash-face { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 28px 22px 48px;
+  border-radius: var(--r-card); background: var(--panel-deep); border: 1px solid var(--line-strong); box-shadow: var(--glow-card);
+  backface-visibility: hidden; -webkit-backface-visibility: hidden; transition: transform .45s cubic-bezier(.2, .85, .25, 1); }
+.flash-face.back { transform: rotateY(180deg); }
+.flash.flipped .flash-face.front { transform: rotateY(-180deg); }
+.flash.flipped .flash-face.back { transform: rotateY(0); }
+.flash-fr { font: 700 26px/1.25 var(--f-display); color: var(--text-strong); text-shadow: var(--glow-text-soft); }
+.flash-en { font: 500 20px/1.35 var(--f-body); color: var(--text-strong); }
+.flash-src { position: absolute; left: 0; right: 0; bottom: 16px; font-size: 10px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); pointer-events: none; }

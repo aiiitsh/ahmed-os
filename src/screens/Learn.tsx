@@ -1,13 +1,31 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { weekStats } from '../lib/stats'
 import { fmtDay, weekStart } from '../lib/time'
 import { finishFrenchUnit, logFrench, setFrenchUnit } from '../lib/actions'
 import { FRENCH_ACTIVITIES, FRENCH_MINUTES } from '../data/program'
+import { SONGS } from '../data/songs'
 import { Label, Stepper } from '../components/ui'
 import { QuranBrowser, surahStatus } from '../components/Quran'
+import { Segmented } from '../components/QuickLog'
+import { SongCards } from '../components/SongCards'
+
+type LearnPage = 'main' | 'songs'
+
+/** Learn sub-page from the hash: #/learn (Quran + French) or #/learn/songs. */
+function useLearnPage(): [LearnPage, (p: LearnPage) => void] {
+  const parse = (): LearnPage => (location.hash.replace(/^#\/?/, '').split(/[/?]/)[1] === 'songs' ? 'songs' : 'main')
+  const [p, setP] = useState(parse)
+  useEffect(() => {
+    const on = () => setP(parse())
+    window.addEventListener('hashchange', on)
+    return () => window.removeEventListener('hashchange', on)
+  }, [])
+  return [p, (to) => { location.hash = to === 'songs' ? '#/learn/songs' : '#/learn' }]
+}
 
 export function Learn() {
+  const [page, setPage] = useLearnPage()
   return (
     <div className="page">
       <div className="hero-light" />
@@ -15,10 +33,13 @@ export function Learn() {
         <h1 className="hero-word" style={{ fontSize: 34 }}>LEARN</h1>
         <Label>No targets · every bit counts</Label>
       </header>
-      <div className="cols c2">
-        <Quran />
-        <French />
-      </div>
+      <Segmented value={page} options={[['main', 'Quran & French'], ['songs', 'French songs']]} onChange={setPage} />
+      {page === 'songs' ? <FrenchSongs /> : (
+        <div className="cols c2">
+          <Quran />
+          <French />
+        </div>
+      )}
     </div>
   )
 }
@@ -89,6 +110,30 @@ function French() {
           </div>
         </div>
       )}
+    </section>
+  )
+}
+
+function FrenchSongs() {
+  const [id, setId] = useState(SONGS[0]?.id)
+  const song = SONGS.find((s) => s.id === id) ?? SONGS[0]
+  if (!song) return <div className="empty">No songs yet.</div>
+  return (
+    <section className="panel stack" style={{ gap: 16 }}>
+      <div className="row between">
+        <div className="title">French songs</div>
+        <span className="pill">{song.cards.length} cards</span>
+      </div>
+      {SONGS.length > 1 && (
+        <div className="row wrap" style={{ gap: 8 }}>
+          {SONGS.map((s) => <button key={s.id} className={`chip${s.id === song.id ? ' on' : ''}`} onClick={() => setId(s.id)}>{s.title}</button>)}
+        </div>
+      )}
+      <div className="stack" style={{ gap: 2 }}>
+        <Label>Source</Label>
+        <div className="small"><span className="strong">{song.title}</span> <span className="muted">by {song.artist}</span></div>
+      </div>
+      <SongCards key={song.id} song={song} />
     </section>
   )
 }
