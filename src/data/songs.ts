@@ -106,6 +106,17 @@ export const SONGS: Song[] = [
           { fr: 'avoir pied', en: 'to touch the bottom in water. J’ai pas pied = I can’t touch the bottom / I’m out of my depth.' },
         ],
       },
+      {
+        fr: 'Le produit est colombien',
+        en: 'The product is Colombian.',
+        context: 'In rap, le produit is code for drugs, and Colombian hints at cocaine.',
+        note: 'Nationality adjectives take no capital in French (un film français), but nouns for people do (un Colombien).',
+        words: [
+          { fr: 'le produit', en: 'the product. Rap slang for drugs.' },
+          { fr: 'est', en: 'is (from être)' },
+          { fr: 'colombien', en: 'Colombian' },
+        ],
+      },
     ],
   },
 ]
