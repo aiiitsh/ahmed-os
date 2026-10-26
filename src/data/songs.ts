@@ -94,6 +94,18 @@ export const SONGS: Song[] = [
           { fr: 'des billets', en: 'banknotes, bills. Un billet is also a ticket: un billet de train.' },
         ],
       },
+      {
+        fr: "Dedans faut pas que j'aie pied",
+        en: 'Inside it, I mustn’t be able to touch the bottom.',
+        context: 'Continues the pool of cash: it has to be so deep he can’t even stand. 💸',
+        note: 'It’s spelled j’aie (subjunctive), not j’ai. They sound exactly the same.',
+        words: [
+          { fr: 'Dedans', en: 'inside (the pool)' },
+          { fr: 'faut pas', en: 'mustn’t. Il ne faut pas, with il and ne dropped in speech.' },
+          { fr: "que j'aie", en: 'that I have. Subjunctive of avoir, always used after il faut que.' },
+          { fr: 'avoir pied', en: 'to touch the bottom in water. J’ai pas pied = I can’t touch the bottom / I’m out of my depth.' },
+        ],
+      },
     ],
   },
 ]
