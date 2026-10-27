@@ -128,6 +128,28 @@ export const SONGS: Song[] = [
           { fr: 'antillais', en: 'from the Antilles, the French Caribbean islands like Guadeloupe and Martinique.' },
         ],
       },
+      {
+        fr: "J'parle à ma [?]",
+        en: 'I talk to my [?]',
+        context: 'The last word can’t be made out (Genius doesn’t have it either), so we don’t know who he’s talking to. 🤷',
+        note: 'Ma is feminine, so it’s a woman or a feminine noun: ma mère, ma meuf…',
+        words: [
+          { fr: "J'parle", en: 'I talk (je parle). The e gets swallowed again, like in j’veux.' },
+          { fr: 'à ma…', en: 'to my…' },
+        ],
+      },
+      {
+        fr: 'Ça me voit comme un animal',
+        en: 'They see me as an animal.',
+        context: 'People look at him like he’s a beast, something wild and dangerous. 🐺',
+        note: 'Ça normally means it / that, but in slang it can mean “they” or “those people”, said in a cold, dismissive way.',
+        words: [
+          { fr: 'ça', en: 'it / that. In slang: “they”, “those people”.' },
+          { fr: 'me voit', en: 'sees me (from voir)' },
+          { fr: 'comme', en: 'like, as' },
+          { fr: 'un animal', en: 'an animal' },
+        ],
+      },
     ],
   },
 ]
