@@ -81,6 +81,8 @@ export interface Settings {
   focus_backfill_1024?: boolean
   /** Long-term life plan (the "Life" screen). Lives here, not in the code, because the repo is public. */
   life_plan?: LifePlan
+  /** Daily French song card: which card is today's and whether it was read. */
+  song_daily?: SongDaily
 }
 
 export interface LifeStep {
@@ -266,4 +268,13 @@ export interface WeeklyReview {
   summary: any
   claude_notes: string | null
   created_at?: string
+}
+
+export interface SongDaily {
+  /** app day (starts 4 am) the card belongs to */
+  day: string
+  /** card key: song id + French line */
+  key: string
+  /** read = done for today; again / pending = show on every app open today */
+  status: 'pending' | 'read' | 'again'
 }

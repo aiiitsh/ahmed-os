@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react'
-import type { Song } from '../data/songs'
+import type { Song, SongCard } from '../data/songs'
 import { Label } from './ui'
 
 /** Swipeable flashcards for one song: tap to flip, swipe left / right for next / previous. */
@@ -51,23 +51,7 @@ export function SongCards({ song }: { song: Song }) {
           onPointerDown={onPointerDown} onPointerMove={onPointerMove} onPointerUp={onPointerUp} onPointerCancel={onPointerCancel}
           onKeyDown={(e) => { if (e.key === 'ArrowRight') go(1); if (e.key === 'ArrowLeft') go(-1) }}
           aria-label={flipped ? `${card.fr}: ${card.en}` : `${card.fr}. Tap to see the meaning`}>
-          <div className="flash-face front">
-            <Label>Français</Label>
-            <div className="flash-fr">{card.fr}</div>
-            <span className="label dim">Tap to flip</span>
-          </div>
-          <div className="flash-face back">
-            <Label>English</Label>
-            <div className="flash-en">{card.en}</div>
-            {card.context && <p className="small muted" style={{ lineHeight: 1.5 }}>{card.context}</p>}
-            {card.note && <p className="small strong" style={{ lineHeight: 1.5, whiteSpace: 'pre-line' }}>{card.note}</p>}
-            <div className="flash-words">
-              {card.words.map((w) => (
-                <div key={w.fr} className="li"><span className="flash-word">{w.fr}</span><span className="small grow">{w.en}</span></div>
-              ))}
-            </div>
-          </div>
-          <div className="flash-src mono">♪ {song.title} · {song.artist}</div>
+          <CardFaces song={song} card={card} />
         </button>
       </div>
       <div className="row between">
@@ -79,5 +63,30 @@ export function SongCards({ song }: { song: Song }) {
       </div>
       <div className="label" style={{ textAlign: 'center' }}>{i + 1} / {n}</div>
     </div>
+  )
+}
+
+/** Front (French) and back (meaning + word by word) of one lyric card. */
+export function CardFaces({ song, card }: { song: Song; card: SongCard }) {
+  return (
+    <>
+      <div className="flash-face front">
+        <Label>Français</Label>
+        <div className="flash-fr">{card.fr}</div>
+        <span className="label dim">Tap to flip</span>
+      </div>
+      <div className="flash-face back">
+        <Label>English</Label>
+        <div className="flash-en">{card.en}</div>
+        {card.context && <p className="small muted" style={{ lineHeight: 1.5 }}>{card.context}</p>}
+        {card.note && <p className="small strong" style={{ lineHeight: 1.5, whiteSpace: 'pre-line' }}>{card.note}</p>}
+        <div className="flash-words">
+          {card.words.map((w) => (
+            <div key={w.fr} className="li"><span className="flash-word">{w.fr}</span><span className="small grow">{w.en}</span></div>
+          ))}
+        </div>
+      </div>
+      <div className="flash-src mono">♪ {song.title} · {song.artist}</div>
+    </>
   )
 }

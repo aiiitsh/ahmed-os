@@ -1,3 +1,4 @@
+import { nextCard, today as dailyToday } from './songdaily'
 import { byCategory, byWhat, cleanTag } from './focustags'
 import { describe, expect, it } from 'vitest'
 import { progress } from './progression'
@@ -339,5 +340,24 @@ describe('life plan board', () => {
   })
   it('reads the Quran juz goals from the steps', () => {
     expect(quranTrack(plan).map((x) => x.juz)).toEqual([3, 15, 30])
+  })
+})
+
+describe('daily song card', () => {
+  const card = (fr: string) => ({ fr, en: fr, words: [] })
+  const songs = [{ id: 'a', title: 'A', artist: 'x', cards: [card('one'), card('two')] }, { id: 'b', title: 'B', artist: 'y', cards: [card('three')] }]
+  it('loops through every card in order and wraps', () => {
+    expect(nextCard(null, songs)?.key).toBe('a:one')
+    expect(nextCard('a:two', songs)?.key).toBe('b:three')
+    expect(nextCard('b:three', songs)?.key).toBe('a:one')
+  })
+  it('keeps today’s card for the day, moves on the next day, and picks up new cards', () => {
+    const d1 = dailyToday(undefined, '2026-10-27', songs)!
+    expect(d1).toEqual({ day: '2026-10-27', key: 'a:one', status: 'pending' })
+    const read = { ...d1, status: 'read' as const }
+    expect(dailyToday(read, '2026-10-27', songs)).toBe(read)
+    expect(dailyToday(read, '2026-10-28', songs)?.key).toBe('a:two')
+    const more = [{ ...songs[0], cards: [...songs[0].cards, card('new')] }, songs[1]]
+    expect(dailyToday({ ...read, key: 'a:two' }, '2026-10-29', more)?.key).toBe('a:new')
   })
 })

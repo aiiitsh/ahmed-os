@@ -10,6 +10,7 @@ import { generateWeekPlan, planFor } from './lib/weekplan'
 import { localDate, weekStart } from './lib/time'
 import { GlowDefs, Toasts } from './components/ui'
 import { Icon } from './components/Icon'
+import { DailySong } from './components/DailySong'
 import { QuickSheets, useSheet } from './components/QuickLog'
 import { Login } from './screens/Login'
 import { Home } from './screens/Home'
@@ -149,6 +150,7 @@ function Shell() {
       </nav>
       {loaded && (active || finished) && <SessionRunner />}
       <QuickSheets />
+      {loaded && hasApp && <DailySong />}
       <Toasts />
     </div>
   )
