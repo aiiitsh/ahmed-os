@@ -163,6 +163,17 @@ export const SONGS: Song[] = [
           { fr: "rien d'amical", en: 'nothing friendly. Rien de + adjective: rien de nouveau = nothing new.' },
         ],
       },
+      {
+        fr: "L'humain j'l'ai laissé, il m'emboucane",
+        en: 'Humans, I left them behind, they get on my nerves.',
+        context: 'He’s turned away from people: they annoy him, so he leaves them behind.',
+        note: 'L’humain is put first for emphasis, then repeated with l’ and il. Same pattern: Mon frère, je l’aime.',
+        words: [
+          { fr: "L'humain", en: 'people / humanity' },
+          { fr: "j'l'ai laissé", en: 'I left it / them (je l’ai laissé). Laisser in the passé composé.' },
+          { fr: "il m'emboucane", en: 'it annoys me. Rare slang; the everyday words are il m’énerve or il me saoule.' },
+        ],
+      },
     ],
   },
 ]
