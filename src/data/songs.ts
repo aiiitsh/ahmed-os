@@ -186,6 +186,19 @@ export const SONGS: Song[] = [
           { fr: 'canner', en: 'slang for “to die”. Standard: mourir. Other slang: crever.' },
         ],
       },
+      {
+        fr: "Ils m'ont enfermé pour quelques grammes",
+        en: 'They locked me up for a few grams.',
+        context: 'He went to prison over a small amount of drugs.',
+        note: 'The lyric site writes Il, but it’s Ils (plural, “they”). They sound the same.',
+        words: [
+          { fr: "Ils m'ont", en: 'they have… me (plural, so Ils)' },
+          { fr: 'enfermé', en: 'locked up. Enfermer in the passé composé: avoir + past participle.' },
+          { fr: 'pour', en: 'for (giving the reason)' },
+          { fr: 'quelques', en: 'a few' },
+          { fr: 'des grammes', en: 'grams. In rap this almost always means drugs.' },
+        ],
+      },
     ],
   },
 ]
