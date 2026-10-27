@@ -174,6 +174,18 @@ export const SONGS: Song[] = [
           { fr: "il m'emboucane", en: 'it annoys me. Rare slang; the everyday words are il m’énerve or il me saoule.' },
         ],
       },
+      {
+        fr: "Ils t'aiment bien une fois qu'tu cannes",
+        en: 'They like you once you’re dead.',
+        context: 'The bitter idea: people only show love after you die.',
+        note: 'Aimer bien is softer than aimer: to like, not to love.',
+        words: [
+          { fr: "Ils t'aiment bien", en: 'they like you' },
+          { fr: 'une fois que', en: 'once, as soon as' },
+          { fr: "qu'tu", en: 'que tu, with the e swallowed' },
+          { fr: 'canner', en: 'slang for “to die”. Standard: mourir. Other slang: crever.' },
+        ],
+      },
     ],
   },
 ]
