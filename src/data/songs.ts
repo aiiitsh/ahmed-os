@@ -199,6 +199,17 @@ export const SONGS: Song[] = [
           { fr: 'des grammes', en: 'grams. In rap this almost always means drugs.' },
         ],
       },
+      {
+        fr: "C'est quand le procès d'Yahou-Netan",
+        en: 'When’s the trial of Yahu-Netan?',
+        context: 'Netanyahu’s name flipped around: when will Netanyahu be put on trial? A contrast with him being locked up for a few grams.',
+        note: 'Flipping syllables is a rap wordplay trick, close to verlan (l’envers → verlan).',
+        words: [
+          { fr: "C'est quand…?", en: 'When is…? Casual; formal: Quand est-ce que…?' },
+          { fr: 'le procès', en: 'the trial' },
+          { fr: "d'Yahou-Netan", en: 'of Netanyahu, with the syllables flipped' },
+        ],
+      },
     ],
   },
 ]
