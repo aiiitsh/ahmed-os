@@ -2,7 +2,7 @@ import { nextCard, today as dailyToday } from './songdaily'
 import { byCategory, byWhat, cleanTag } from './focustags'
 import { describe, expect, it } from 'vitest'
 import { progress } from './progression'
-import { addDays, localDate, weekStart, dow } from './time'
+import { addDays, localDate, weekStart, dow, hhmm, typedSpan, zonedIso } from './time'
 import { habitStats, groupSets } from './stats'
 import { trainingPlan, swimTarget, proteinOn, dayPlan, tomorrowPreview } from './plan'
 import { cardioCredit } from './activity'
@@ -359,5 +359,20 @@ describe('daily song card', () => {
     expect(dailyToday(read, '2026-10-28', songs)?.key).toBe('a:two')
     const more = [{ ...songs[0], cards: [...songs[0].cards, card('new')] }, songs[1]]
     expect(dailyToday({ ...read, key: 'a:two' }, '2026-10-29', more)?.key).toBe('a:new')
+  })
+})
+
+describe('typed focus times', () => {
+  it('turns a typed Toronto time into the right instant, on both sides of daylight saving', () => {
+    expect(zonedIso('2026-10-27', '09:30')).toBe('2026-10-27T13:30:00.000Z')
+    expect(zonedIso('2026-11-02', '09:30')).toBe('2026-11-02T14:30:00.000Z')
+    expect(hhmm(zonedIso('2026-11-01', '23:05'))).toBe('23:05')
+  })
+  it('an end before the start runs past midnight', () => {
+    const s = typedSpan('2026-10-27', '23:30', '00:45')
+    expect(localDate(s.ended_at)).toBe('2026-10-28')
+    expect((Date.parse(s.ended_at) - Date.parse(s.started_at)) / 60000).toBe(75)
+    const d = typedSpan('2026-10-27', '10:00', '11:20')
+    expect((Date.parse(d.ended_at) - Date.parse(d.started_at)) / 60000).toBe(80)
   })
 })

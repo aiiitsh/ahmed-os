@@ -88,3 +88,18 @@ export const minutesBetween = (a: string | number | Date, b: string | number | D
   (new Date(b).getTime() - new Date(a).getTime()) / 60000
 
 export const nowIso = () => new Date().toISOString()
+
+/** Toronto date + typed 'HH:MM' → ISO timestamp (handles daylight saving). */
+export function zonedIso(d: string, hm: string): string {
+  const [h, m] = hm.split(':').map(Number)
+  const want = toUTC(d) + (h * 60 + m) * 60000
+  let t = want
+  for (let i = 0; i < 2; i++) t += want - (toUTC(localDate(t)) + localMinutes(t) * 60000)
+  return new Date(t).toISOString()
+}
+
+/** Typed start and end times on day `d`; an end at or before the start means it ran past midnight. */
+export function typedSpan(d: string, from: string, to: string): { started_at: string; ended_at: string } {
+  const started_at = zonedIso(d, from)
+  return { started_at, ended_at: zonedIso(to <= from ? addDays(d, 1) : d, to) }
+}

@@ -37,7 +37,7 @@ export function TagPicker({ value, onChange }: { value: FocusTag; onChange: (t: 
 }
 
 /** Sheet body: edit a label, then Save. */
-export function TagEditor({ initial, onSave, onClose, children }: { initial: FocusTag; onSave: (t: FocusTag) => void; onClose: () => void; children?: ReactNode }) {
+export function TagEditor({ initial, onSave, onClose, children, canSave = true }: { initial: FocusTag; onSave: (t: FocusTag) => void; onClose: () => void; children?: ReactNode; canSave?: boolean }) {
   const [tag, setTag] = useState<FocusTag>(initial)
   return (
     <div className="stack" style={{ gap: 14 }}>
@@ -45,8 +45,8 @@ export function TagEditor({ initial, onSave, onClose, children }: { initial: Foc
       <Label>Category · what</Label>
       <TagPicker value={tag} onChange={setTag} />
       <div className="row" style={{ gap: 8 }}>
-        <button className="btn grow" onClick={() => { onSave({}); onClose() }}>Clear</button>
-        <button className="btn btn-filled grow" onClick={() => { onSave(tag); onClose() }}>Save</button>
+        <button className="btn grow" disabled={!canSave} onClick={() => { onSave({}); onClose() }}>Clear</button>
+        <button className="btn btn-filled grow" disabled={!canSave} onClick={() => { onSave(tag); onClose() }}>Save</button>
       </div>
     </div>
   )

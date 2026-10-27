@@ -1,7 +1,7 @@
 // Every user action. Each one updates local state, writes, and (where it makes sense) offers Undo.
 import { get, newId, patchApp, putRows, putTarget, removeRow, set, uid } from './store'
 import { toast } from './toast'
-import { addDays, localDate, minutesBetween, nowIso, fmtDur } from './time'
+import { addDays, hhmm, localDate, minutesBetween, nowIso, fmtDur } from './time'
 import { CARDIO, DAYS, EX, isSecs, nextDay, type Sport } from '../data/program'
 import { progress } from './progression'
 import { restAfterSet, restBetween, unlockAudio } from './rest'
@@ -195,6 +195,37 @@ export function tagBlock(id: string, tag: FocusTag) {
   if (t) tags[id] = t
   else delete tags[id]
   patchApp({ settings: { ...app.settings, focus_tags: tags } })
+}
+
+/** Fix a finished block's times, typed in afterwards. */
+export function editBlockTimes(id: string, started_at: string, ended_at: string) {
+  const prev = get().focus.find((b) => b.id === id)
+  if (!prev || (prev.started_at === started_at && prev.ended_at === ended_at)) return
+  putRows('focus', [{ ...prev, started_at, ended_at, local_date: localDate(started_at) }])
+  toast(`Block · ${hhmm(started_at)}–${hhmm(ended_at)}`, () => putRows('focus', [prev]))
+}
+
+/** Focus you didn't time: typed start and end, optional label. */
+export function addFocusBlock(started_at: string, ended_at: string, tag: FocusTag) {
+  const b: FocusBlock = {
+    id: newId(), user_id: uid(), local_date: localDate(started_at), block_type: 'focus', kind: 'work',
+    started_at, ended_at, end_reason: 'stop',
+  }
+  putRows('focus', [b])
+  tagBlock(b.id, tag)
+  toast(`Added · ${fmtDur(minutesBetween(started_at, ended_at))} focus`, () => { removeRow('focus', b.id); tagBlock(b.id, {}) })
+}
+
+export function deleteBlock(id: string) {
+  const prev = get().focus.find((b) => b.id === id)
+  removeRow('focus', id)
+  toast('Block deleted', prev ? () => putRows('focus', [prev]) : undefined)
+}
+
+/** Move the running timer's start, e.g. you really started earlier, or drifted off and came back later. */
+export function setFocusStart(started_at: string) {
+  const f = get().appState?.focus
+  if (f && new Date(started_at).getTime() <= Date.now()) patchApp({ focus: { ...f, started_at } })
 }
 
 export function setCategories(list: string[]) {

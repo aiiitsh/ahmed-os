@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { focusStats } from '../lib/stats'
-import { addDays, dowShort, fmtClock, fmtDur, fmtStopwatch, localDate, localMinutes, minutesBetween, weekDays, weekStart } from '../lib/time'
-import { focusBreak, focusResume, focusStop, setFocusTag, startFocus, tagBlock, toggleTask } from '../lib/actions'
+import { addDays, dowShort, fmtClock, fmtDur, fmtStopwatch, hhmm, localDate, localMinutes, minutesBetween, typedSpan, weekDays, weekStart, zonedIso } from '../lib/time'
+import { addFocusBlock, deleteBlock, editBlockTimes, focusBreak, focusResume, focusStop, setFocusStart, setFocusTag, startFocus, tagBlock, toggleTask } from '../lib/actions'
 import { GOALS } from '../data/program'
 import { Bar, Label, Sheet, useNow } from '../components/ui'
 import { Icon } from '../components/Icon'
@@ -77,7 +77,7 @@ export function Work() {
           </>
         )}
         <Sheet open={editing && !!focus} onClose={() => setEditing(false)} title="What is this block?">
-          {focus && <TagEditor initial={focus} onSave={setFocusTag} onClose={() => setEditing(false)} />}
+          {focus && <RunningEditor key={focus.started_at} onClose={() => setEditing(false)} />}
         </Sheet>
       </section>
 
@@ -97,6 +97,7 @@ export function Work() {
           <div className="row between"><Label>Lost focus</Label><span className="mono strong">{st.lost}×</span></div>
           <Timeline blocks={todays} focus={focus ?? null} now={now} />
           <BlockList blocks={todays} />
+          <AddBlock today={today} />
         </section>
 
         <section className="panel stack" style={{ gap: 16 }}>
@@ -128,6 +129,7 @@ function RunningTag({ onEdit }: { onEdit: () => void }) {
       <button className={`chip${label ? ' on' : ' dashed'}`} style={{ maxWidth: '100%', overflowWrap: 'anywhere' }} onClick={onEdit}>
         {label || 'Add what you’re working on'}
       </button>
+      <button className="chip sm dashed" onClick={onEdit}>Started {hhmm(focus.started_at)} · fix</button>
       {task && !task.done_at && <button className="chip dashed" onClick={() => toggleTask(task.id)}><Icon name="circlecheck" size={14} glow={false} /> Task done</button>}
     </div>
   )
@@ -137,7 +139,7 @@ function RunningTag({ onEdit }: { onEdit: () => void }) {
 function BlockList({ blocks }: { blocks: FocusBlock[] }) {
   const settings = useStore((s) => s.appState?.settings)
   const [edit, setEdit] = useState<FocusBlock | null>(null)
-  const focusBlocks = blocks.filter((b) => b.block_type === 'focus')
+  const focusBlocks = blocks.filter((b) => b.block_type === 'focus').sort((a, b) => a.started_at.localeCompare(b.started_at))
   if (!focusBlocks.length) return null
   return (
     <>
@@ -153,12 +155,107 @@ function BlockList({ blocks }: { blocks: FocusBlock[] }) {
           )
         })}
       </div>
-      <Sheet open={!!edit} onClose={() => setEdit(null)} title="What was this block?">
-        {edit && (
-          <TagEditor key={edit.id} initial={tagOf(settings, edit.id)} onSave={(t) => tagBlock(edit.id, t)} onClose={() => setEdit(null)}>
-            <span className="small">{fmtClock(localMinutes(edit.started_at))}–{fmtClock(localMinutes(edit.ended_at))} · {fmtDur(minutesBetween(edit.started_at, edit.ended_at))}</span>
-          </TagEditor>
-        )}
+      <Sheet open={!!edit} onClose={() => setEdit(null)} title="Fix this block">
+        {edit && <BlockEditor key={edit.id} block={edit} onClose={() => setEdit(null)} />}
+      </Sheet>
+    </>
+  )
+}
+
+/** Check typed times: both filled, not in the future, not absurdly long. */
+function checkSpan(d: string, from: string, to: string) {
+  if (!from || !to) return { err: 'Type both times.' }
+  const span = typedSpan(d, from, to)
+  const mins = minutesBetween(span.started_at, span.ended_at)
+  if (new Date(span.ended_at).getTime() > Date.now() + 60000) return { span, mins, err: 'That ends later than now.' }
+  if (mins > 16 * 60) return { span, mins, err: 'Longer than 16 hours. Check the times.' }
+  return { span, mins, err: null }
+}
+
+function TimeRange({ from, to, onFrom, onTo, mins, err }: { from: string; to: string; onFrom: (v: string) => void; onTo: (v: string) => void; mins?: number; err: string | null }) {
+  return (
+    <div className="stack" style={{ gap: 8 }}>
+      <div className="grid2">
+        <label className="stack" style={{ gap: 6 }}><span className="label">Start</span>
+          <input className="field" type="time" value={from} onChange={(e) => onFrom(e.target.value)} /></label>
+        <label className="stack" style={{ gap: 6 }}><span className="label">End</span>
+          <input className="field" type="time" value={to} onChange={(e) => onTo(e.target.value)} /></label>
+      </div>
+      <span className={`small${err ? ' strong' : ' muted'}`}>
+        {err ?? (!from || !to ? 'Type when you started and stopped.' : `${fmtDur(mins ?? 0)} focus${to <= from ? ' · ends the next day' : ''}`)}
+      </span>
+    </div>
+  )
+}
+
+/** A finished block: type the real start and end, change its label, or delete it. */
+function BlockEditor({ block, onClose }: { block: FocusBlock; onClose: () => void }) {
+  const settings = useStore((s) => s.appState?.settings)
+  const init = { from: hhmm(block.started_at), to: hhmm(block.ended_at) }
+  const [from, setFrom] = useState(init.from)
+  const [to, setTo] = useState(init.to)
+  const { span, mins, err } = checkSpan(block.local_date, from, to)
+  const save = (t: FocusTag) => {
+    tagBlock(block.id, t)
+    // Untouched times keep their seconds.
+    if (span) editBlockTimes(block.id, from === init.from ? block.started_at : span.started_at, to === init.to && from === init.from ? block.ended_at : span.ended_at)
+  }
+  return (
+    <TagEditor initial={tagOf(settings, block.id)} canSave={!err} onSave={save} onClose={onClose}>
+      <TimeRange from={from} to={to} onFrom={setFrom} onTo={setTo} mins={mins} err={err} />
+      <button className="btn btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={() => { deleteBlock(block.id); onClose() }}>Delete this block</button>
+    </TagEditor>
+  )
+}
+
+/** The running timer: change its label or when it really started. */
+function RunningEditor({ onClose }: { onClose: () => void }) {
+  const focus = useStore((s) => s.appState?.focus)
+  const [from, setFrom] = useState(focus ? hhmm(focus.started_at) : '')
+  if (!focus) return null
+  const iso = from ? zonedIso(localDate(focus.started_at), from) : ''
+  const err = !iso ? 'Type a time.' : new Date(iso).getTime() > Date.now() ? 'That’s later than now.' : null
+  const save = (t: FocusTag) => {
+    setFocusTag(t)
+    if (from !== hhmm(focus.started_at)) setFocusStart(iso)
+  }
+  return (
+    <TagEditor initial={focus} canSave={!err} onSave={save} onClose={onClose}>
+      <label className="stack" style={{ gap: 6 }}>
+        <span className="label">{focus.mode === 'focus' ? 'Focus' : 'Break'} started at</span>
+        <input className="field" type="time" value={from} onChange={(e) => setFrom(e.target.value)} />
+      </label>
+      {err && <span className="small strong">{err}</span>}
+    </TagEditor>
+  )
+}
+
+/** Focus you forgot to time: pick the day, type start and end. */
+function AddBlock({ today }: { today: string }) {
+  const [open, setOpen] = useState(false)
+  const [day, setDay] = useState(today)
+  const [from, setFrom] = useState('')
+  const [to, setTo] = useState('')
+  const [tag, setTag] = useState<FocusTag>({})
+  const { span, mins, err } = checkSpan(day, from, to)
+  const show = () => { setDay(today); setFrom(''); setTo(''); setTag({}); setOpen(true) }
+  const add = () => {
+    if (!span || err) return
+    addFocusBlock(span.started_at, span.ended_at, tag)
+    setOpen(false)
+  }
+  return (
+    <>
+      <button className="btn btn-ghost" style={{ alignSelf: 'flex-start' }} onClick={show}><Icon name="plus" size={16} glow={false} /> Add time you didn’t track</button>
+      <Sheet open={open} onClose={() => setOpen(false)} title="Add focus time">
+        <div className="stack" style={{ gap: 14 }}>
+          <label className="stack" style={{ gap: 6 }}><span className="label">Day</span>
+            <input className="field" type="date" max={today} value={day} onChange={(e) => e.target.value && setDay(e.target.value)} /></label>
+          <TimeRange from={from} to={to} onFrom={setFrom} onTo={setTo} mins={mins} err={from || to ? err : null} />
+          <Label>Category · what</Label>
+          <TagPicker value={tag} onChange={setTag} />
+          <button className="btn btn-filled btn-big" disabled={!!err} onClick={add}>Add block</button>
+        </div>
       </Sheet>
     </>
   )
