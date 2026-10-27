@@ -3,7 +3,7 @@ import { useStore } from '../lib/store'
 import { patchSettings } from '../lib/actions'
 import { findCard, today } from '../lib/songdaily'
 import type { SongDaily } from '../lib/types'
-import { CardFaces } from './SongCards'
+import { CardLesson } from './SongCards'
 import { Sheet } from './ui'
 
 /** Shown on app open until "Read" is tapped that day. Reopens when the app comes back after a minute away. */
@@ -11,7 +11,6 @@ export function DailySong() {
   const saved = useStore((s) => s.appState?.settings?.song_daily)
   const busy = useStore((s) => !!s.appState?.active_session)
   const [open, setOpen] = useState(false)
-  const [flipped, setFlipped] = useState(false)
   const t = today(saved)
   const entry = t && findCard(t.key)
 
@@ -23,7 +22,7 @@ export function DailySong() {
   useEffect(() => {
     const show = () => {
       const cur = today(useStore.getState().appState?.settings?.song_daily)
-      if (cur && cur.status !== 'read') { setFlipped(false); setOpen(true) }
+      if (cur && cur.status !== 'read') setOpen(true)
     }
     show()
     let hiddenAt = 0
@@ -43,10 +42,7 @@ export function DailySong() {
   return (
     <Sheet open={open} onClose={() => setOpen(false)} title="Line of the day">
       <div className="stack" style={{ gap: 14 }}>
-        <button className={`flash${flipped ? ' flipped' : ''}`} onClick={() => setFlipped((f) => !f)}
-          aria-label={flipped ? `${entry.card.fr}: ${entry.card.en}` : `${entry.card.fr}. Tap to see the meaning`}>
-          <CardFaces song={entry.song} card={entry.card} />
-        </button>
+        <CardLesson song={entry.song} card={entry.card} />
         <div className="grid2">
           <button className="btn btn-big" onClick={() => answer('again')}>Again</button>
           <button className="btn btn-big btn-filled" onClick={() => answer('read')}>Read</button>

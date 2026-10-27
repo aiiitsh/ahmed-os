@@ -76,17 +76,37 @@ export function CardFaces({ song, card }: { song: Song; card: SongCard }) {
         <span className="label dim">Tap to flip</span>
       </div>
       <div className="flash-face back">
-        <Label>English</Label>
-        <div className="flash-en">{card.en}</div>
-        {card.context && <p className="small muted" style={{ lineHeight: 1.5 }}>{card.context}</p>}
-        {card.note && <p className="small strong" style={{ lineHeight: 1.5, whiteSpace: 'pre-line' }}>{card.note}</p>}
-        <div className="flash-words">
-          {card.words.map((w) => (
-            <div key={w.fr} className="li"><span className="flash-word">{w.fr}</span><span className="small grow">{w.en}</span></div>
-          ))}
-        </div>
+        <Lesson card={card} />
       </div>
       <div className="flash-src mono">♪ {song.title} · {song.artist}</div>
+    </>
+  )
+}
+
+/** The whole card on one face: the line, then the meaning, context, note and word by word. No flipping. */
+export function CardLesson({ song, card }: { song: Song; card: SongCard }) {
+  return (
+    <div className="flash-lesson">
+      <Label>Français</Label>
+      <div className="flash-fr">{card.fr}</div>
+      <Lesson card={card} />
+      <div className="label dim mono">♪ {song.title} · {song.artist}</div>
+    </div>
+  )
+}
+
+function Lesson({ card }: { card: SongCard }) {
+  return (
+    <>
+      <Label>English</Label>
+      <div className="flash-en">{card.en}</div>
+      {card.context && <p className="small muted" style={{ lineHeight: 1.5 }}>{card.context}</p>}
+      {card.note && <p className="small strong" style={{ lineHeight: 1.5, whiteSpace: 'pre-line' }}>{card.note}</p>}
+      <div className="flash-words">
+        {card.words.map((w) => (
+          <div key={w.fr} className="li"><span className="flash-word">{w.fr}</span><span className="small grow">{w.en}</span></div>
+        ))}
+      </div>
     </>
   )
 }
