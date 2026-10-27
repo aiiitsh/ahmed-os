@@ -150,6 +150,19 @@ export const SONGS: Song[] = [
           { fr: 'un animal', en: 'an animal' },
         ],
       },
+      {
+        fr: "La plata est radicale, c'est que du business, y'a rien d'amical",
+        en: 'Money is ruthless. It’s only business, there’s nothing friendly about it.',
+        context: 'Where cash is involved, friendship disappears. 💸',
+        note: 'Full proper form: Ce n’est que du business. Il n’y a rien d’amical.',
+        words: [
+          { fr: 'la plata', en: 'money. Spanish slang borrowed by French rap, like le plug.' },
+          { fr: 'radicale', en: 'radical, here harsh or ruthless. Ends in -e because plata is feminine.' },
+          { fr: "c'est que du business", en: 'it’s only business (ce n’est que…). Ne… que = only, and the ne is dropped again.' },
+          { fr: "y'a", en: 'there is (il y a). In speech, il gets dropped.' },
+          { fr: "rien d'amical", en: 'nothing friendly. Rien de + adjective: rien de nouveau = nothing new.' },
+        ],
+      },
     ],
   },
 ]
