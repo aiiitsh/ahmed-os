@@ -79,6 +79,8 @@ export interface Settings {
   focus_tags?: Record<string, FocusTag>
   /** one-off: blocks logged on 24 Oct 2026 were tagged Study */
   focus_backfill_1024?: boolean
+  /** Set once the after-midnight protein of 27→28 Oct was moved to the 27th. */
+  protein_redate_1028?: boolean
   /** Long-term life plan (the "Life" screen). Lives here, not in the code, because the repo is public. */
   life_plan?: LifePlan
   /** Daily French song card: which card is today's and whether it was read. */

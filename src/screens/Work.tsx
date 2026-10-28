@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { useStore } from '../lib/store'
 import { focusStats } from '../lib/stats'
-import { addDays, dowShort, fmtClock, fmtDur, fmtStopwatch, hhmm, localDate, localMinutes, minutesBetween, typedSpan, weekDays, weekStart, zonedIso } from '../lib/time'
+import { addDays, dowShort, fmtClock, fmtDur, fmtStopwatch, hhmm, localDate, localMinutes, minutesBetween, typedSpan, weekDays, weekStart, dayTimeIso } from '../lib/time'
 import { addFocusBlock, deleteBlock, editBlockTimes, focusBreak, focusResume, focusStop, setFocusStart, setFocusTag, startFocus, tagBlock, toggleTask } from '../lib/actions'
 import { GOALS } from '../data/program'
 import { Bar, Label, Sheet, useNow } from '../components/ui'
@@ -182,7 +182,7 @@ function TimeRange({ from, to, onFrom, onTo, mins, err }: { from: string; to: st
           <input className="field" type="time" value={to} onChange={(e) => onTo(e.target.value)} /></label>
       </div>
       <span className={`small${err ? ' strong' : ' muted'}`}>
-        {err ?? (!from || !to ? 'Type when you started and stopped.' : `${fmtDur(mins ?? 0)} focus${to <= from ? ' · ends the next day' : ''}`)}
+        {err ?? (!from || !to ? 'Type when you started and stopped.' : `${fmtDur(mins ?? 0)} focus${to <= from ? ' · runs past midnight' : ''}`)}
       </span>
     </div>
   )
@@ -213,7 +213,7 @@ function RunningEditor({ onClose }: { onClose: () => void }) {
   const focus = useStore((s) => s.appState?.focus)
   const [from, setFrom] = useState(focus ? hhmm(focus.started_at) : '')
   if (!focus) return null
-  const iso = from ? zonedIso(localDate(focus.started_at), from) : ''
+  const iso = from ? dayTimeIso(localDate(focus.started_at), from) : ''
   const err = !iso ? 'Type a time.' : new Date(iso).getTime() > Date.now() ? 'That’s later than now.' : null
   const save = (t: FocusTag) => {
     setFocusTag(t)

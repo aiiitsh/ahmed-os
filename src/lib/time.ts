@@ -1,4 +1,5 @@
-// Every "day" is the local date in America/Toronto. Weeks run Monday → Sunday.
+// Every "day" is a Toronto day that runs 4 am → 4 am, so a late night still counts toward the day before.
+// Weeks run Monday → Sunday.
 export const TZ = 'America/Toronto'
 
 const dateFmt = new Intl.DateTimeFormat('en-CA', { timeZone: TZ, year: 'numeric', month: '2-digit', day: '2-digit' })
@@ -7,9 +8,16 @@ const partsFmt = new Intl.DateTimeFormat('en-US', {
   hour: '2-digit', minute: '2-digit', second: '2-digit',
 })
 
-/** 'YYYY-MM-DD' in Toronto for a timestamp. */
+/** The day rolls over at 4 am: anything logged before that counts toward the day before. */
+export const DAY_START_MIN = 4 * 60
+
+/** The real calendar date in Toronto. */
+const calendarDate = (at: Date | string | number) => dateFmt.format(new Date(at))
+
+/** The day ('YYYY-MM-DD') a timestamp counts toward: the Toronto date, minus one before 4 am. */
 export function localDate(at: Date | string | number = new Date()): string {
-  return dateFmt.format(new Date(at))
+  const d = calendarDate(at)
+  return localMinutes(at) < DAY_START_MIN ? addDays(d, -1) : d
 }
 
 /** Minutes since local midnight (0..1439) in Toronto. */
@@ -89,17 +97,25 @@ export const minutesBetween = (a: string | number | Date, b: string | number | D
 
 export const nowIso = () => new Date().toISOString()
 
-/** Toronto date + typed 'HH:MM' → ISO timestamp (handles daylight saving). */
+/** Toronto calendar date + 'HH:MM' → ISO timestamp (handles daylight saving). */
 export function zonedIso(d: string, hm: string): string {
   const [h, m] = hm.split(':').map(Number)
   const want = toUTC(d) + (h * 60 + m) * 60000
   let t = want
-  for (let i = 0; i < 2; i++) t += want - (toUTC(localDate(t)) + localMinutes(t) * 60000)
+  for (let i = 0; i < 2; i++) t += want - (toUTC(calendarDate(t)) + localMinutes(t) * 60000)
   return new Date(t).toISOString()
 }
 
-/** Typed start and end times on day `d`; an end at or before the start means it ran past midnight. */
+const START_HM = fmtClock(DAY_START_MIN)
+/** Sort key for a typed time within a day: 04:00 first, 03:59 last. */
+const inDay = (hm: string) => (hm < START_HM ? '1' : '0') + hm
+
+/** A typed 'HH:MM' on day `d`: times after midnight (before 4 am) are that night, on the next calendar date. */
+export function dayTimeIso(d: string, hm: string): string {
+  return zonedIso(hm < START_HM ? addDays(d, 1) : d, hm)
+}
+
+/** Typed start and end times on day `d`; an end at or before the start means it ran into the next day. */
 export function typedSpan(d: string, from: string, to: string): { started_at: string; ended_at: string } {
-  const started_at = zonedIso(d, from)
-  return { started_at, ended_at: zonedIso(to <= from ? addDays(d, 1) : d, to) }
+  return { started_at: dayTimeIso(d, from), ended_at: dayTimeIso(inDay(to) <= inDay(from) ? addDays(d, 1) : d, to) }
 }

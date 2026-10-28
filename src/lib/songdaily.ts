@@ -21,8 +21,8 @@ export function nextCard(lastKey: string | null | undefined, songs: Song[] = SON
 
 export const findCard = (key: string, songs: Song[] = SONGS) => queue(songs).find((c) => c.key === key) ?? null
 
-/** The app day starts at 4 am, so a late night still counts as the day before. */
-export const appDay = (now = Date.now()) => localDate(now - 4 * 3600000)
+/** The app day (it starts at 4 am, see localDate). */
+export const appDay = (now = Date.now()) => localDate(now)
 
 /** Today's state: a fresh card on a new day, otherwise what's saved. */
 export function today(saved: SongDaily | undefined, day = appDay(), songs: Song[] = SONGS): SongDaily | null {

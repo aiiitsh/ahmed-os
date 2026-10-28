@@ -2,7 +2,7 @@ import { nextCard, today as dailyToday } from './songdaily'
 import { byCategory, byWhat, cleanTag } from './focustags'
 import { describe, expect, it } from 'vitest'
 import { progress } from './progression'
-import { addDays, localDate, weekStart, dow, hhmm, typedSpan, zonedIso } from './time'
+import { addDays, localDate, weekStart, dow, hhmm, typedSpan, zonedIso, dayTimeIso } from './time'
 import { habitStats, groupSets } from './stats'
 import { trainingPlan, swimTarget, proteinOn, dayPlan, tomorrowPreview } from './plan'
 import { cardioCredit } from './activity'
@@ -368,11 +368,31 @@ describe('typed focus times', () => {
     expect(zonedIso('2026-11-02', '09:30')).toBe('2026-11-02T14:30:00.000Z')
     expect(hhmm(zonedIso('2026-11-01', '23:05'))).toBe('23:05')
   })
-  it('an end before the start runs past midnight', () => {
+  it('an end before the start runs past midnight, and still counts toward that day', () => {
     const s = typedSpan('2026-10-27', '23:30', '00:45')
-    expect(localDate(s.ended_at)).toBe('2026-10-28')
+    expect(s.ended_at).toBe('2026-10-28T04:45:00.000Z')
+    expect(localDate(s.ended_at)).toBe('2026-10-27')
     expect((Date.parse(s.ended_at) - Date.parse(s.started_at)) / 60000).toBe(75)
     const d = typedSpan('2026-10-27', '10:00', '11:20')
     expect((Date.parse(d.ended_at) - Date.parse(d.started_at)) / 60000).toBe(80)
+  })
+})
+
+describe('the day runs 4 am → 4 am', () => {
+  it('after midnight still counts toward the day before', () => {
+    expect(localDate('2026-10-28T04:00:00Z')).toBe('2026-10-27') // 00:00
+    expect(localDate('2026-10-28T07:59:00Z')).toBe('2026-10-27') // 03:59
+    expect(localDate('2026-10-28T08:00:00Z')).toBe('2026-10-28') // 04:00
+    expect(localDate('2026-10-28T03:59:00Z')).toBe('2026-10-27') // 23:59
+  })
+  it('holds on the night the clocks go back', () => {
+    expect(localDate('2026-11-01T08:59:00Z')).toBe('2026-10-31') // 03:59 EST
+    expect(localDate('2026-11-01T09:00:00Z')).toBe('2026-11-01') // 04:00 EST
+  })
+  it('typed times after midnight land on that night', () => {
+    expect(dayTimeIso('2026-10-27', '00:30')).toBe('2026-10-28T04:30:00.000Z')
+    expect(dayTimeIso('2026-10-27', '09:00')).toBe('2026-10-27T13:00:00.000Z')
+    const late = typedSpan('2026-10-27', '00:10', '01:00')
+    expect([late.started_at, late.ended_at]).toEqual(['2026-10-28T04:10:00.000Z', '2026-10-28T05:00:00.000Z'])
   })
 })

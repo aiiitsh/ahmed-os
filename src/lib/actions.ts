@@ -245,6 +245,15 @@ export function backfillStudyOct24() {
   patchApp({ focus, settings: { ...app.settings, focus_tags: tags, focus_backfill_1024: true } })
 }
 
+/** One-off: protein logged after midnight on the night of 27→28 Oct went to the 28th; the day now ends at 4 am. */
+export function redateProteinOct28() {
+  const app = get().appState
+  if (!app || app.settings.protein_redate_1028) return
+  const moved = get().logs.filter((l) => l.type === 'protein' && l.local_date === '2026-10-28' && localDate(l.logged_at) === '2026-10-27')
+  if (moved.length) putRows('logs', moved.map((l) => ({ ...l, local_date: '2026-10-27' })))
+  patchSettings({ protein_redate_1028: true })
+}
+
 export function focusBreak(reason: 'break' | 'lost_focus') {
   const prev = get().appState?.focus
   if (!prev || prev.mode !== 'focus') return
