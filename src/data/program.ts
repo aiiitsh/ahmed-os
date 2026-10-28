@@ -268,8 +268,10 @@ export const FRENCH_MINUTES = [15, 30, 45, 60]
 export const GOALS = { sessions: 4, focusHours: 15, proteinDays: 5 }
 /** Daily protein, grams: about 1.8 g per kg (67 kg). Settings.protein_g overrides it. */
 export const PROTEIN_G = 125
-/** Quick-add protein buttons. Protein bread = Dempster's Protein, 14 g per 2 slices (86 g). */
+/** Quick-add protein buttons. Protein bread = Dempster's Protein, 14 g per 2 slices (86 g). Pure Protein bar = Chocolate Deluxe, 21 g.
+ *  Protein milk = Lactantia UltraPūr, 20 g per 250 ml cup. Protein yogurt = 8 g per cup (label). */
 export const PROTEIN_FOODS: [string, number][] = [
-  ['Protein bread, 2 slices', 14], ['Protein bread, 1 slice', 7], ['1 egg', 6], ['1 chicken breast', 45], ['iÖGO cup (100 g)', 4],
+  ['Protein bread, 2 slices', 14], ['Protein bread, 1 slice', 7], ['1 egg', 6], ['1 chicken breast', 45], ['iÖGO cup (100 g)', 4], ['Pure Protein bar', 21],
+  ['Protein milk cup (250 ml)', 20], ['Protein yogurt cup', 8],
   ['Milk glass', 8], ['Greek yogurt', 20], ['Whey scoop', 25], ['Tuna can', 25], ['Lentils cup', 18],
 ]
