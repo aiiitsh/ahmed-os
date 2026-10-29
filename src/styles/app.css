@@ -128,6 +128,12 @@ button.chip { min-height: 36px; }
 .chip.warn { background: var(--text-strong); color: #000; border-color: var(--text-strong); box-shadow: 0 0 14px rgba(255,255,255,.45); }
 .chip.dashed { border-style: dashed; border-color: var(--tick); color: var(--dim); }
 .chip.sm { min-height: 22px; padding: 0 8px; font-size: 9px; }
+/* task priority badge: P1 filled, P2 outlined, P3 dashed */
+.prio { flex: none; display: inline-flex; align-items: center; justify-content: center; min-width: 26px; height: 20px; padding: 0 5px; border-radius: 5px;
+  font: 700 10px/1 var(--f-mono); letter-spacing: .06em; border: 1px solid var(--line-strong); color: var(--muted); text-shadow: none; }
+.prio.p1 { background: var(--text-strong); color: #000; border-color: var(--text-strong); box-shadow: 0 0 10px rgba(255,255,255,.4); }
+.prio.p2 { color: var(--text-strong); border-color: var(--text-strong); }
+.prio.p3 { border-style: dashed; border-color: var(--tick); color: var(--dim); }
 .pill { display: inline-flex; align-items: center; padding: 5px 10px; border-radius: 999px; border: 1px solid var(--text-strong); font: 500 10px/1 var(--f-mono); letter-spacing: .16em; color: var(--text-strong); box-shadow: 0 0 10px rgba(255,255,255,.25); }
 
 /* bars */

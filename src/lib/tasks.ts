@@ -1,13 +1,28 @@
 // To-do list. A task can have a deadline (or not). Tasks due today or tomorrow show up in
 // Today's plan so they get finished a day early; "Move to tomorrow" hides one until tomorrow.
-import type { Task } from './types'
+import type { Priority, Task } from './types'
 import { addDays, daysBetween, dowShort, fmtDay, localDate } from './time'
 
 export const isOpen = (t: Task) => !t.done_at
 
-/** Open tasks first by deadline (soonest first), then undated ones, newest last. */
+export const PRIORITIES: { p: Priority; label: string }[] = [
+  { p: 1, label: 'Must do' },
+  { p: 2, label: 'Should do' },
+  { p: 3, label: 'If there’s time' },
+]
+
+/** "[P1] Apply to X" → priority 1, title "Apply to X". Titles without a tag keep the given priority. */
+export function splitPriority(title: string, priority: Priority | null = null): { title: string; priority: Priority | null } {
+  const m = /^\s*\[P([123])\]\s*/i.exec(title)
+  return m ? { title: title.slice(m[0].length).trim(), priority: Number(m[1]) as Priority } : { title: title.trim(), priority }
+}
+
+const rank = (t: Task) => t.priority ?? 4
+
+/** Highest priority first; within it by deadline (soonest first), then undated ones, newest last. */
 export function sortTasks(tasks: Task[]): Task[] {
   return [...tasks].sort((a, b) => {
+    if (rank(a) !== rank(b)) return rank(a) - rank(b)
     if (a.due && b.due) return a.due.localeCompare(b.due) || a.created_at.localeCompare(b.created_at)
     if (a.due) return -1
     if (b.due) return 1

@@ -309,7 +309,7 @@ export function buildMonthText(data: Data, today = localDate()): string {
     const open = sortTasks(tasks.filter(isOpen))
     const late = open.filter((t) => t.due && t.due < today)
     L.push(`Open: ${open.length}${late.length ? ` · ${late.length} late` : ''}`)
-    for (const t of open.slice(0, 20)) L.push(`  - ${t.title}${t.due ? ` (${dueLabel(t.due, today)})` : ''}`)
+    for (const t of open.slice(0, 30)) L.push(`  - ${t.priority ? `[P${t.priority}] ` : ''}${t.title}${t.due ? ` (${dueLabel(t.due, today)})` : ''}`)
   }
 
   // Learn

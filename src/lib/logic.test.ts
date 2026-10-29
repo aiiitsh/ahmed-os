@@ -14,7 +14,7 @@ import { kgToLb } from './format'
 import type { Data } from './store'
 import { DAYS, EX } from '../data/program'
 import type { HabitEntry, Task, Workout, WorkoutSet } from './types'
-import { sortTasks, tasksForToday } from './tasks'
+import { sortTasks, splitPriority, tasksForToday } from './tasks'
 import { countdownText, daysToNext, nextStep, parsePlan, quranTrack, stepColor, stepState, timelinePct } from './life'
 
 describe('progression (7.5)', () => {
@@ -439,5 +439,19 @@ describe('Saturday plan read', () => {
     expect(planReadStatus([], '2026-10-19', '2026-10-28')).toBe('missed')
     expect(planReadStatus([], '2026-10-26', '2026-10-28')).toBe('not yet')
     expect(buildText(base(['2026-10-24']), '2026-10-19')).toContain('Saturday "Read my full plan": done.')
+  })
+})
+
+describe('task priorities', () => {
+  it('reads a [P1] tag off the front of a title', () => {
+    expect(splitPriority('[P1] Apply: Roblox PM intern (closes Fri 30 Oct, 5 pm PT)')).toEqual({ title: 'Apply: Roblox PM intern (closes Fri 30 Oct, 5 pm PT)', priority: 1 })
+    expect(splitPriority('[p3]Check alerts')).toEqual({ title: 'Check alerts', priority: 3 })
+    expect(splitPriority('Buy milk', 2)).toEqual({ title: 'Buy milk', priority: 2 })
+    expect(splitPriority('Read [P1] notes')).toEqual({ title: 'Read [P1] notes', priority: null })
+  })
+  it('sorts by priority, then deadline', () => {
+    const t = (id: string, due: string | null, priority?: 1 | 2 | 3): Task => ({ id, title: id, due, priority, created_at: '2026-10-20T12:00:00Z' })
+    const out = sortTasks([t('none-soon', '2026-10-28'), t('p2', '2026-10-29', 2), t('p1-late', '2026-11-08', 1), t('p1-soon', '2026-10-30', 1)])
+    expect(out.map((x) => x.id)).toEqual(['p1-soon', 'p1-late', 'p2', 'none-soon'])
   })
 })
