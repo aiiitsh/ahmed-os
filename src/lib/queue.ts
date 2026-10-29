@@ -2,11 +2,14 @@
 // stored in IndexedDB and retried on `online` / app focus, in order.
 import { supabase } from './supabase'
 import { demoMode } from './demo'
+import { mergeSettings, type SettingsPatch } from './settingsmerge'
 
 export type Op =
   | { kind: 'upsert'; table: string; values: Record<string, any> | Record<string, any>[]; onConflict?: string }
   | { kind: 'update'; table: string; values: Record<string, any>; match: Record<string, any> }
   | { kind: 'delete'; table: string; match: Record<string, any> }
+  /** app_state settings: only the changed keys, merged into the server's copy right before writing */
+  | { kind: 'settings'; table: string; values: Record<string, any>; match: Record<string, any>; patch: SettingsPatch }
 
 interface Stored { seq?: number; op: Op }
 
@@ -45,6 +48,10 @@ const emit = () => listeners.forEach((l) => l(queued + inflight))
 export const onPending = (l: Listener) => (listeners.add(l), () => listeners.delete(l))
 export const pendingCount = () => queued + inflight
 
+/** Bumped on every write, so a reload that started before it knows its data may be stale. */
+let writes = 0
+export const writeCount = () => writes
+
 let onError: (msg: string) => void = (m) => console.error(m)
 export const setErrorHandler = (fn: (msg: string) => void) => (onError = fn)
 
@@ -54,7 +61,23 @@ export function isNetworkError(err: any): boolean {
   return /fetch|network|load failed|timeout|offline/i.test(msg) || err?.status === 0
 }
 
+// Settings writes read-merge-write, one at a time, so two of them never merge onto the same old copy.
+let settingsLock: Promise<unknown> = Promise.resolve()
+
+async function runSettings(op: Extract<Op, { kind: 'settings' }>): Promise<void> {
+  const cur = await supabase.from(op.table).select('settings').match(op.match).maybeSingle()
+  if (cur.error) throw cur.error
+  const settings = mergeSettings(cur.data?.settings, op.patch)
+  const res = await supabase.from(op.table).update({ ...op.values, settings }).match(op.match)
+  if (res.error) throw res.error
+}
+
 async function run(op: Op): Promise<void> {
+  if (op.kind === 'settings') {
+    const p = settingsLock.then(() => runSettings(op))
+    settingsLock = p.catch(() => {})
+    return p
+  }
   const q = supabase.from(op.table)
   let res
   if (op.kind === 'upsert') res = await q.upsert(op.values as any, op.onConflict ? { onConflict: op.onConflict } : undefined)
@@ -66,6 +89,7 @@ async function run(op: Op): Promise<void> {
 /** Fire a write. Optimistic: the caller has already updated local state. */
 export async function write(op: Op): Promise<void> {
   if (demoMode) return
+  writes++
   if (queued > 0) {
     // Keep order: something is already waiting, so this waits behind it.
     await enqueue(op)

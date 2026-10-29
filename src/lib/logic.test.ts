@@ -1,3 +1,4 @@
+import { diffSettings, mergeSettings } from './settingsmerge'
 import { amountSummary, daysDone, planReadStatus, quranStreak } from './qurandaily'
 import { buildMonthText, buildText } from './export'
 import { nextCard, today as dailyToday } from './songdaily'
@@ -453,5 +454,42 @@ describe('task priorities', () => {
     const t = (id: string, due: string | null, priority?: 1 | 2 | 3): Task => ({ id, title: id, due, priority, created_at: '2026-10-20T12:00:00Z' })
     const out = sortTasks([t('none-soon', '2026-10-28'), t('p2', '2026-10-29', 2), t('p1-late', '2026-11-08', 1), t('p1-soon', '2026-10-30', 1)])
     expect(out.map((x) => x.id)).toEqual(['p1-soon', 'p1-late', 'p2', 'none-soon'])
+  })
+})
+
+describe('settings saves merge instead of overwriting', () => {
+  const task = (id: string, title = id) => ({ id, title, due: null, created_at: '2026-10-29T12:00:00Z' })
+  const save = (server: any, before: any, after: any) => mergeSettings(server, diffSettings(before, after)!)
+
+  it('sends only the keys that changed', () => {
+    expect(diffSettings({ a: 1, b: [1] }, { a: 1, b: [1] })).toBeNull()
+    expect(diffSettings({ a: 1, gone: 2 }, { a: 3, added: 4 })).toEqual({ base: { a: 1, gone: 2 }, next: { a: 3, added: 4 } })
+  })
+  it('two quick task adds both survive, even if the second was made on an older copy', () => {
+    const s0 = { tasks: [task('a')], protein_g: 125 }
+    const s1 = save(s0, s0, { ...s0, tasks: [task('a'), task('b')] })
+    // the screen reloaded the old copy (no "b") before the next add
+    const s2 = save(s1, s0, { ...s0, tasks: [task('a'), task('c')] })
+    expect(s2.tasks.map((t: any) => t.id)).toEqual(['a', 'b', 'c'])
+  })
+  it('a stale device does not undo edits or deletes made elsewhere', () => {
+    const old = { tasks: [task('a'), task('b')], song_daily: { day: '2026-10-28' } }
+    const server = { tasks: [task('a', 'A renamed')], song_daily: { day: '2026-10-28' }, plan_reads: ['2026-10-24'] }
+    const out = save(server, old, { ...old, song_daily: { day: '2026-10-29' } })
+    expect(out.tasks).toEqual([task('a', 'A renamed')]) // b stays deleted, rename kept
+    expect(out.plan_reads).toEqual(['2026-10-24'])
+    expect(out.song_daily).toEqual({ day: '2026-10-29' })
+  })
+  it('applies this edit’s own deletes and edits', () => {
+    const before = { tasks: [task('a'), task('b')] }
+    const server = { tasks: [task('a'), task('b'), task('x')] }
+    const out = save(server, before, { tasks: [task('a', 'A done')] })
+    expect(out.tasks).toEqual([task('a', 'A done'), task('x')])
+  })
+  it('labels by id merge too', () => {
+    const before = { focus_tags: { b1: { cat: 'Study' } } }
+    const server = { focus_tags: { b1: { cat: 'Study' }, b2: { cat: 'Farq' } } }
+    const out = save(server, before, { focus_tags: { b1: { cat: 'Afflo' }, b3: { cat: 'Planning' } } })
+    expect(out.focus_tags).toEqual({ b1: { cat: 'Afflo' }, b2: { cat: 'Farq' }, b3: { cat: 'Planning' } })
   })
 })

@@ -1,7 +1,8 @@
 // App data store (Zustand). Local state is updated first (optimistic), then written through queue.ts.
 import { create } from 'zustand'
 import { supabase } from './supabase'
-import { pendingCount, write, onPending, type Op } from './queue'
+import { pendingCount, write, writeCount, onPending, type Op } from './queue'
+import { diffSettings } from './settingsmerge'
 import { addDays, localDate } from './time'
 import { EX, TRACKED, seedTarget } from '../data/program'
 import { kgToLb } from './format'
@@ -80,6 +81,8 @@ export async function load(force = false) {
   // Don't overwrite optimistic local state with stale server data while writes are pending.
   if (!force && pendingCount() > 0) return
   loading = true
+  const seq = writeCount()
+  let retry = false
   try {
     const since = addDays(localDate(), -HISTORY_DAYS)
     const [app, targets, quran, logs, focus, workouts, sets, habits, reviews] = await Promise.all([
@@ -95,6 +98,8 @@ export async function load(force = false) {
       q<HabitEntry[]>(supabase.from('habit_entries').select('*').order('entry_date').range(0, 9999)),
       q<WeeklyReview[]>(supabase.from('weekly_reviews').select('*').order('week_start')),
     ])
+    // A save started while this was loading: this data may predate it, so don't show it. Try again shortly.
+    if (writeCount() !== seq) { retry = true; return }
     if (pendingCount() > 0 && !force) return
     const wIds = new Set(workouts.map((w) => w.id))
     const num = (v: any) => (v == null ? null : Number(v))
@@ -115,6 +120,7 @@ export async function load(force = false) {
     set({ loadError: e?.message || 'Could not load data', loaded: get().loaded })
   } finally {
     loading = false
+    if (retry) setTimeout(() => void load(force), 800)
   }
 }
 
@@ -152,7 +158,13 @@ export function patchApp(p: Partial<AppState>) {
   if (!cur) return
   const next = { ...cur, ...p, updated_at: new Date().toISOString() }
   set({ appState: next })
-  void write({ kind: 'update', table: 'app_state', values: { ...p, updated_at: next.updated_at }, match: { user_id: cur.user_id } })
+  const { settings, ...rest } = p
+  const values = { ...rest, updated_at: next.updated_at }
+  const match = { user_id: cur.user_id }
+  // Settings: send only what changed, merged into the saved copy (see settingsmerge.ts).
+  const patch = settings ? diffSettings(cur.settings ?? {}, settings) : null
+  if (patch) void write({ kind: 'settings', table: 'app_state', values, match, patch })
+  else if (Object.keys(rest).length) void write({ kind: 'update', table: 'app_state', values, match })
 }
 
 export function putTarget(t: Target) {
