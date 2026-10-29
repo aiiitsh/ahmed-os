@@ -1,3 +1,5 @@
+import { amountSummary, daysDone, planReadStatus, quranStreak } from './qurandaily'
+import { buildMonthText, buildText } from './export'
 import { nextCard, today as dailyToday } from './songdaily'
 import { byCategory, byWhat, cleanTag } from './focustags'
 import { describe, expect, it } from 'vitest'
@@ -12,7 +14,7 @@ import { kgToLb } from './format'
 import type { Data } from './store'
 import { DAYS, EX } from '../data/program'
 import type { HabitEntry, Task, Workout, WorkoutSet } from './types'
-import { sortTasks, tasksForToday } from './tasks'
+import { sortTasks, splitPriority, tasksForToday } from './tasks'
 import { countdownText, daysToNext, nextStep, parsePlan, quranTrack, stepColor, stepState, timelinePct } from './life'
 
 describe('progression (7.5)', () => {
@@ -394,5 +396,62 @@ describe('the day runs 4 am → 4 am', () => {
     expect(dayTimeIso('2026-10-27', '09:00')).toBe('2026-10-27T13:00:00.000Z')
     const late = typedSpan('2026-10-27', '00:10', '01:00')
     expect([late.started_at, late.ended_at]).toEqual(['2026-10-28T04:10:00.000Z', '2026-10-28T05:00:00.000Z'])
+  })
+})
+
+describe('Quran daily check-in', () => {
+  const base = (): Data => ({ appState: null, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
+  const q = (d: string, amount: string, id = `${d}-${amount}`) => ({ id, user_id: 'u', logged_at: `${d}T15:00:00Z`, local_date: d, type: 'quran' as const, data: { amount } })
+  const oldJuz = { id: 'old', user_id: 'u', logged_at: '2026-10-27T15:00:00Z', local_date: '2026-10-27', type: 'quran' as const, data: { juz: 30, mode: 'revise' } }
+  it('any entry makes the day done; old juz logs do not count', () => {
+    const data = { ...base(), logs: [oldJuz] }
+    expect(dayPlan(data, '2026-10-27').find((i) => i.key === 'quran')).toMatchObject({ done: false })
+    expect(dayPlan(data, '2026-10-27').find((i) => i.key === 'quran')!.optional).toBeFalsy()
+    const done = { ...base(), logs: [q('2026-10-27', 'half_video')] }
+    expect(dayPlan(done, '2026-10-27').find((i) => i.key === 'quran')).toMatchObject({ done: true, sub: '✓ Half YouTube video' })
+  })
+  it('counts the streak and days done', () => {
+    const logs = [q('2026-10-25', 'page'), q('2026-10-26', 'video'), q('2026-10-27', 'half_page'), q('2026-10-27', 'page'), q('2026-10-22', 'page'), oldJuz]
+    expect(quranStreak(logs, '2026-10-27')).toBe(3)
+    expect(quranStreak(logs, '2026-10-28')).toBe(3) // today not done yet: the streak still stands
+    expect(quranStreak(logs, '2026-10-29')).toBe(0)
+    expect(daysDone(logs, 7, '2026-10-27')).toBe(4)
+    expect(amountSummary(logs)).toBe('One page ×3, Half page ×1, One YouTube video ×1')
+  })
+  it('goes into the Claude summaries', () => {
+    const data = { ...base(), logs: [q('2026-10-26', 'page'), q('2026-10-27', 'video')] }
+    const text = buildText(data, '2026-10-26')
+    expect(text).toContain('## Quran daily check-in')
+    expect(text).toContain('Done on 2/7 days: One page ×1, One YouTube video ×1.')
+    expect(buildMonthText(data, '2026-10-28')).toContain('| 2/7 |')
+  })
+})
+
+describe('Saturday plan read', () => {
+  const base = (reads?: string[]): Data => ({ appState: { settings: { plan_reads: reads } } as any, targets: {}, quran: [], logs: [], focus: [], workouts: [], sets: [], habits: [], reviews: [] })
+  it('shows on Saturdays only', () => {
+    expect(dayPlan(base(), '2026-10-31').find((i) => i.key === 'plan_read')).toMatchObject({ done: false, action: { kind: 'life' } })
+    expect(dayPlan(base(), '2026-10-30').find((i) => i.key === 'plan_read')).toBeUndefined()
+    expect(dayPlan(base(['2026-10-31']), '2026-10-31').find((i) => i.key === 'plan_read')).toMatchObject({ done: true })
+  })
+  it('reports done, missed or not yet per week', () => {
+    expect(planReadStatus(['2026-10-24'], '2026-10-19', '2026-10-28')).toBe('done')
+    expect(planReadStatus([], '2026-10-19', '2026-10-28')).toBe('missed')
+    expect(planReadStatus([], '2026-10-26', '2026-10-28')).toBe('not yet')
+    expect(buildText(base(['2026-10-24']), '2026-10-19')).toContain('Saturday "Read my full plan": done.')
+  })
+})
+
+describe('task priorities', () => {
+  it('reads a [P1] tag off the front of a title', () => {
+    expect(splitPriority('[P1] Apply: Roblox PM intern (closes Fri 30 Oct, 5 pm PT)')).toEqual({ title: 'Apply: Roblox PM intern (closes Fri 30 Oct, 5 pm PT)', priority: 1 })
+    expect(splitPriority('[p3]Check alerts')).toEqual({ title: 'Check alerts', priority: 3 })
+    expect(splitPriority('Buy milk', 2)).toEqual({ title: 'Buy milk', priority: 2 })
+    expect(splitPriority('Read [P1] notes')).toEqual({ title: 'Read [P1] notes', priority: null })
+  })
+  it('sorts by priority, then deadline', () => {
+    const t = (id: string, due: string | null, priority?: 1 | 2 | 3): Task => ({ id, title: id, due, priority, created_at: '2026-10-20T12:00:00Z' })
+    const out = sortTasks([t('none-soon', '2026-10-28'), t('p2', '2026-10-29', 2), t('p1-late', '2026-11-08', 1), t('p1-soon', '2026-10-30', 1)])
+    expect(out.map((x) => x.id)).toEqual(['p1-soon', 'p1-late', 'p2', 'none-soon'])
   })
 })

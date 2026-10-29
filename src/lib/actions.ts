@@ -8,7 +8,9 @@ import { restAfterSet, restBetween, unlockAudio } from './rest'
 import { surahLatin } from '../data/surahs'
 import { swimTarget } from './plan'
 import { cleanTag, tagLabel } from './focustags'
-import type { ActiveSession, AppState, DayCode, Feel, FocusBlock, FocusTag, HabitEntry, LifePlan, LifeStep, Log, LogType, PlanSlot, QuranEvent, StepState, Target, Task, WeekPlan, Workout, WorkoutSet } from './types'
+import { amountLabel, type QuranAmount } from './qurandaily'
+import { splitPriority } from './tasks'
+import type { ActiveSession, AppState, DayCode, Feel, FocusBlock, FocusTag, HabitEntry, LifePlan, LifeStep, Log, LogType, PlanSlot, Priority, QuranEvent, StepState, Target, Task, WeekPlan, Workout, WorkoutSet } from './types'
 
 // ---------- generic logs ----------
 
@@ -252,6 +254,17 @@ export function redateProteinOct28() {
   const moved = get().logs.filter((l) => l.type === 'protein' && l.local_date === '2026-10-28' && localDate(l.logged_at) === '2026-10-27')
   if (moved.length) putRows('logs', moved.map((l) => ({ ...l, local_date: '2026-10-27' })))
   patchSettings({ protein_redate_1028: true })
+}
+
+/** Quran daily check-in: one tap logs today's amount. */
+export function logQuranCheckin(amount: QuranAmount) {
+  addLog('quran', { amount }, `Quran · ${amountLabel(amount)}`)
+}
+
+/** Saturday: the full life plan was opened and read. */
+export function markPlanRead(d = localDate()) {
+  const reads = get().appState?.settings.plan_reads ?? []
+  if (!reads.includes(d)) patchSettings({ plan_reads: [...reads, d].slice(-104) })
 }
 
 export function focusBreak(reason: 'break' | 'lost_focus') {
@@ -560,10 +573,17 @@ function saveTasks(tasks: Task[]) {
   patchApp({ settings: { ...app.settings, tasks: tasks.filter((t) => !t.done_at || localDate(t.done_at) >= cutoff) } })
 }
 
-export function addTask(title: string, due: string | null) {
-  const t = title.trim()
-  if (!t) return
-  saveTasks([...tasksNow(), { id: newId(), title: t, due, created_at: nowIso() }])
+export function addTask(title: string, due: string | null, priority: Priority | null = null) {
+  const t = splitPriority(title, priority)
+  if (!t.title) return
+  saveTasks([...tasksNow(), { id: newId(), title: t.title, due, priority: t.priority, created_at: nowIso() }])
+}
+
+/** Tasks added elsewhere with a "[P1]" tag in the title get a real priority instead. */
+export function tagPriorities() {
+  const tasks = tasksNow()
+  if (!tasks.some((t) => /^\s*\[P[123]\]/i.test(t.title))) return
+  saveTasks(tasks.map((t) => ({ ...t, ...splitPriority(t.title, t.priority ?? null) })))
 }
 
 export function updateTask(id: string, patch: Partial<Task>) {

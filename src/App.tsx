@@ -5,7 +5,7 @@ import { demoMode, demoData } from './lib/demo'
 import { load, seedIfNeeded, set, useStore, get } from './lib/store'
 import { setErrorHandler, startQueue } from './lib/queue'
 import { toast } from './lib/toast'
-import { autoCloseStaleSession, backfillStudyOct24, redateProteinOct28, focusBreak, focusResume, saveWeekPlan, startFocus } from './lib/actions'
+import { autoCloseStaleSession, backfillStudyOct24, redateProteinOct28, tagPriorities, focusBreak, focusResume, saveWeekPlan, startFocus } from './lib/actions'
 import { generateWeekPlan, planFor } from './lib/weekplan'
 import { localDate, weekStart } from './lib/time'
 import { GlowDefs, Toasts } from './components/ui'
@@ -122,7 +122,7 @@ function Shell() {
   const finished = useFinish((f) => !!f.summary)
   useShortcuts()
   useEffect(() => useSheet.setState({ open: null }), [route])
-  useEffect(() => { if (loaded && hasApp) { backfillStudyOct24(); redateProteinOct28() } }, [loaded, hasApp])
+  useEffect(() => { if (loaded && hasApp) { backfillStudyOct24(); redateProteinOct28(); tagPriorities() } }, [loaded, hasApp])
 
   let screen
   if (!loaded || !hasApp) {

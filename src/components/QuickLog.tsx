@@ -4,12 +4,13 @@ import { Icon } from './Icon'
 import { Sheet, Stepper, Label } from './ui'
 import { QuranBrowser } from './Quran'
 import { CARDIO, DAILY_ROUTINE, DURATIONS, FRENCH_ACTIVITIES, FRENCH_MINUTES, PROTEIN_FOODS, ROUTINE_TIP, SWIM, SWIM_HOW } from '../data/program'
-import { logCardio, logFrench, logHike, logProtein, logRoutine, logSwim, routineToday, startFocus, swimPlan } from '../lib/actions'
+import { deleteEntry, logCardio, logFrench, logHike, logProtein, logQuranCheckin, logRoutine, logSwim, routineToday, startFocus, swimPlan } from '../lib/actions'
+import { QURAN_AMOUNTS, amountLabel, daysDone, isQuranCheckin, quranStreak } from '../lib/qurandaily'
 import { proteinGoal, proteinOn } from '../lib/plan'
 import { useStore } from '../lib/store'
 import { fmtDur, localDate } from '../lib/time'
 
-export type SheetKey = 'cardio' | 'swim' | 'run' | 'squash' | 'hike' | 'routine' | 'quran' | 'french' | 'focus' | 'protein'
+export type SheetKey = 'cardio' | 'swim' | 'run' | 'squash' | 'hike' | 'routine' | 'quran' | 'quranDaily' | 'french' | 'focus' | 'protein'
 
 export const useSheet = create<{ open: SheetKey | null }>(() => ({ open: null }))
 export const openSheet = (k: SheetKey) => useSheet.setState({ open: k })
@@ -163,6 +164,38 @@ function QuranSheet() {
   return <QuranBrowser />
 }
 
+/** Daily check-in: one tap logs today's amount and closes. The surah tracker stays one tap away. */
+function QuranDailySheet() {
+  const logs = useStore((s) => s.logs)
+  const today = localDate()
+  const todays = logs.filter((l) => isQuranCheckin(l) && l.local_date === today)
+  const streak = quranStreak(logs, today)
+  return (
+    <div className="stack" style={{ gap: 18 }}>
+      <div className="stack" style={{ gap: 4, alignItems: 'center' }}>
+        <span className="big-num" style={{ fontSize: 32 }}>{todays.length ? '✓ Done' : 'Not yet'}</span>
+        <Label>Today · {streak}-day streak · {daysDone(logs, 30, today)}/30 days</Label>
+      </div>
+      <div className="grid2">
+        {QURAN_AMOUNTS.map(([k, label]) => (
+          <button key={k} className="btn btn-big" onClick={() => { logQuranCheckin(k); close() }}>{label}</button>
+        ))}
+      </div>
+      {todays.length > 0 && (
+        <div className="list">
+          {todays.map((l) => (
+            <div key={l.id} className="li" style={{ gap: 8 }}>
+              <span className="grow">{amountLabel(l.data.amount)}</span>
+              <button className="link" onClick={() => deleteEntry('logs', l.id)}>Remove</button>
+            </div>
+          ))}
+        </div>
+      )}
+      <button className="btn btn-ghost" onClick={() => openSheet('quran')}>Surah tracker: memorized, learned, revised</button>
+    </div>
+  )
+}
+
 function FrenchSheet() {
   const [mins, setMins] = useState(30)
   const unit = useStore((s) => s.appState?.french_unit ?? 1)
@@ -206,7 +239,7 @@ function CardioPicker() {
 }
 
 const TITLES: Record<SheetKey, string> = {
-  cardio: 'What did you do?', swim: 'Log swim', run: 'Run', squash: 'Squash', hike: 'Log hike', routine: 'Posture reset', quran: 'Quran', french: 'French', focus: 'Focus', protein: 'Protein',
+  cardio: 'What did you do?', swim: 'Log swim', run: 'Run', squash: 'Squash', hike: 'Log hike', routine: 'Posture reset', quran: 'Quran', quranDaily: 'Quran today', french: 'French', focus: 'Focus', protein: 'Protein',
 }
 
 export function QuickSheets() {
@@ -220,6 +253,7 @@ export function QuickSheets() {
       {open === 'cardio' && <CardioPicker />}
       {open === 'routine' && <RoutineSheet />}
       {open === 'quran' && <QuranSheet />}
+      {open === 'quranDaily' && <QuranDailySheet />}
       {open === 'french' && <FrenchSheet />}
       {open === 'focus' && <FocusSheet />}
     </Sheet>

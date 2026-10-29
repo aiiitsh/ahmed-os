@@ -1,6 +1,7 @@
 import { fmtDur } from './time'
 import { CARDIO, STRETCH_LABEL, type Sport } from '../data/program'
 import type { Log } from './types'
+import { amountLabel } from './qurandaily'
 
 const cap = (s: string) => (s ? s[0].toUpperCase() + s.slice(1).replace(/_/g, ' ') : s)
 
@@ -28,6 +29,7 @@ export function describeLog(l: Log): { icon: string; text: string } {
     case 'protein':
       return { icon: 'protein', text: d.g ? `Protein · +${d.g} g${d.what ? ` · ${d.what}` : ''}` : 'Protein hit' }
     case 'quran':
+      if (d.amount) return { icon: 'quran', text: `Quran · ${amountLabel(d.amount)}` }
       return { icon: 'quran', text: `Quran · Juz ${d.juz} · ${d.mode === 'memorize' ? 'memorized' : 'revised'}` }
     case 'french':
       return d.activity === 'finished_unit'

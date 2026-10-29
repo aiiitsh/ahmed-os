@@ -62,6 +62,8 @@ export interface SwimPlan {
 }
 
 export interface Settings {
+  /** Saturdays (local dates) the full life plan was read */
+  plan_reads?: string[]
   /** daily protein target, grams */
   protein_g?: number
   show_streak_in_review?: boolean
@@ -130,8 +132,12 @@ export interface Task {
   /** hidden from Today's plan until this day ("Move to tomorrow") */
   plan_on?: string | null
   done_at?: string | null
+  /** 1 = must do this week, 2 = should do, 3 = only if there's time */
+  priority?: Priority | null
   created_at: string
 }
+
+export type Priority = 1 | 2 | 3
 
 export type SlotKind = 'gym' | 'swim' | 'run' | 'hike' | 'squash' | 'cardio' | 'rest'
 

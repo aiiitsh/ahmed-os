@@ -3,7 +3,8 @@
 import { DAYS, DAY_ORDER, EX, GOALS, PROTEIN_G, SWIM } from '../data/program'
 import type { Data } from './store'
 import type { DayCode, Log } from './types'
-import { addDays, daysBetween, localDate, weekStart } from './time'
+import { addDays, daysBetween, dow, localDate, weekStart } from './time'
+import { QURAN_AMOUNTS, amountLabel, isQuranCheckin, quranStreak } from './qurandaily'
 import { focusStats } from './stats'
 import { activityLoad, describeCardio } from './activity'
 import { SLOT_LABEL, slotOn } from './weekplan'
@@ -11,7 +12,8 @@ import type { PlanSlot } from './types'
 
 export type PlanAction =
   | { kind: 'session'; day: DayCode }
-  | { kind: 'sheet'; sheet: 'swim' | 'routine' | 'quran' | 'french' | 'focus' | 'hike' | 'cardio' | 'protein' }
+  | { kind: 'sheet'; sheet: 'swim' | 'routine' | 'quran' | 'quranDaily' | 'french' | 'focus' | 'hike' | 'cardio' | 'protein' }
+  | { kind: 'life' }
 
 export interface PlanItem {
   key: string
@@ -212,12 +214,26 @@ export function dayPlan(data: Data, d = localDate()): PlanItem[] {
     done: fo.total >= focusGoal, action: data.appState?.focus ? undefined : { kind: 'sheet', sheet: 'focus' },
   })
 
-  // Quran and French: no targets. Doing them is good; skipping isn't bad.
-  const q = data.quran.filter((e) => e.local_date === d)
+  // Quran: a daily check-in, like protein. Any amount makes the day done.
+  const q = logs.filter(isQuranCheckin)
+  const streak = quranStreak(data.logs, d)
   items.push({
-    key: 'quran', icon: 'quran', title: 'Quran', sub: q.length ? `✓ ${q.length} today` : 'Learn, memorize or revise a surah',
-    done: q.length > 0, optional: true, action: { kind: 'sheet', sheet: 'quran' },
+    key: 'quran', icon: 'quran', title: 'Quran',
+    sub: q.length ? `✓ ${q.map((l) => amountLabel(l.data.amount)).join(' + ')}${streak > 1 ? ` · ${streak}-day streak` : ''}`
+      : `${QURAN_AMOUNTS.map(([, label]) => label.toLowerCase()).join(', ')}${streak ? ` · ${streak}-day streak` : ''}`,
+    done: q.length > 0, action: { kind: 'sheet', sheet: 'quranDaily' },
   })
+
+  // Saturdays: read the whole life plan once a week.
+  if (dow(d) === 6) {
+    const read = !!data.appState?.settings?.plan_reads?.includes(d)
+    items.push({
+      key: 'plan_read', icon: 'life', title: 'Read my full plan', sub: read ? '✓ Read today' : 'Every Saturday · opens the Life screen',
+      done: read, action: { kind: 'life' },
+    })
+  }
+
+  // French: no target. Doing it is good; skipping isn't bad.
   const frMin = logs.filter((l) => l.type === 'french').reduce((a, l) => a + (l.data.minutes || 0), 0)
   items.push({
     key: 'french', icon: 'french', title: 'French', sub: frMin ? `✓ ${frMin} min today` : 'Any amount counts',
