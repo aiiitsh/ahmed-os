@@ -8,6 +8,7 @@ import { restAfterSet, restBetween, unlockAudio } from './rest'
 import { surahLatin } from '../data/surahs'
 import { swimTarget } from './plan'
 import { cleanTag, tagLabel } from './focustags'
+import { amountLabel, type QuranAmount } from './qurandaily'
 import type { ActiveSession, AppState, DayCode, Feel, FocusBlock, FocusTag, HabitEntry, LifePlan, LifeStep, Log, LogType, PlanSlot, QuranEvent, StepState, Target, Task, WeekPlan, Workout, WorkoutSet } from './types'
 
 // ---------- generic logs ----------
@@ -252,6 +253,17 @@ export function redateProteinOct28() {
   const moved = get().logs.filter((l) => l.type === 'protein' && l.local_date === '2026-10-28' && localDate(l.logged_at) === '2026-10-27')
   if (moved.length) putRows('logs', moved.map((l) => ({ ...l, local_date: '2026-10-27' })))
   patchSettings({ protein_redate_1028: true })
+}
+
+/** Quran daily check-in: one tap logs today's amount. */
+export function logQuranCheckin(amount: QuranAmount) {
+  addLog('quran', { amount }, `Quran · ${amountLabel(amount)}`)
+}
+
+/** Saturday: the full life plan was opened and read. */
+export function markPlanRead(d = localDate()) {
+  const reads = get().appState?.settings.plan_reads ?? []
+  if (!reads.includes(d)) patchSettings({ plan_reads: [...reads, d].slice(-104) })
 }
 
 export function focusBreak(reason: 'break' | 'lost_focus') {

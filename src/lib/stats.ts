@@ -2,6 +2,7 @@ import { EX, GOALS, GROUPS, PROTEIN_G } from '../data/program'
 import type { Data } from './store'
 import type { Group, HabitEntry, Log, Workout, WorkoutSet, FocusBlock } from './types'
 import { cardioCredit } from './activity'
+import { isQuranCheckin, planReadStatus } from './qurandaily'
 import { addDays, daysBetween, dow, inWeek, localDate, minutesBetween, weekDays, weekStart } from './time'
 
 // ---------- muscle credit ----------
@@ -98,13 +99,6 @@ export function habitStats(entries: HabitEntry[], today = localDate(), start?: s
 
 // ---------- quran ----------
 
-export function quranStreak(logs: Log[], today = localDate()): number {
-  const days = new Set(logs.filter((l) => l.type === 'quran').map((l) => l.local_date))
-  let d = days.has(today) ? today : addDays(today, -1)
-  let n = 0
-  while (days.has(d)) { n++; d = addDays(d, -1) }
-  return n
-}
 
 // ---------- full week ----------
 
@@ -127,6 +121,9 @@ export function weekStats(data: Data, start: string) {
   const feelSets = sets.filter((s) => s.feel && !s.skipped)
   const hard = feelSets.filter((s) => s.feel === 'hard').length
   const quran = data.quran.filter((e) => inWeek(e.local_date, start))
+  const quranCheckins = logs.filter(isQuranCheckin)
+  const quranCheckinDays = new Set(quranCheckins.map((l) => l.local_date)).size
+  const planRead = planReadStatus(data.appState?.settings?.plan_reads, start)
   const french = byType('french')
   const frenchMin = french.reduce((a, l) => a + (l.data.minutes || 0), 0)
 
@@ -160,7 +157,7 @@ export function weekStats(data: Data, start: string) {
     flags: byType('flag'),
     hardPct: feelSets.length ? hard / feelSets.length : 0,
     focus, fo,
-    quran, quranDays,
+    quran, quranDays, quranCheckins, quranCheckinDays, planRead,
     frenchMin, frenchDays: new Set(french.filter((l) => l.data.minutes > 0).map((l) => l.local_date)).size,
     unitsFinished: french.filter((l) => l.data.activity === 'finished_unit').length,
     ringPct: ring.reduce((a, b) => a + b, 0) / ring.length,

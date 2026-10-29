@@ -10,6 +10,7 @@ import { WEEKDAYS, planFor, slotStatus, slotText, unplanned } from './weekplan'
 import { doneBetween, dueLabel, isOpen, sortTasks } from './tasks'
 import { byCategory, byWhat, tagOf } from './focustags'
 import { lifeText } from './life'
+import { amountSummary, quranStreak } from './qurandaily'
 
 export function weightChanges(data: Data, w: Pick<WeekStats, 'sets' | 'workouts'>) {
   const out: { key: string; name: string; from: string; to: string; dir: number }[] = []
@@ -93,6 +94,8 @@ export function buildJson(data: Data, start: string) {
       by_category: Object.fromEntries(byCategory(w.focus, st).map((c) => [c.name, Math.round(c.min)])),
     },
     quran: w.quran.map((e) => ({ date: e.local_date, surah: e.surah, name: surahName(e.surah), kind: e.kind })),
+    quran_checkin: { days: w.quranCheckinDays, entries: w.quranCheckins.map((l) => ({ date: l.local_date, amount: l.data.amount })) },
+    plan_read_saturday: w.planRead,
     french: { minutes: w.frenchMin, days: w.frenchDays, unit: data.appState?.french_unit, units_finished: w.unitsFinished },
     insights: ins.map((i) => ({ attention: i.bad, text: i.text })),
     focus_coach: coach.map((i) => i.text),
@@ -150,8 +153,12 @@ export function buildText(data: Data, start: string): string {
   }
   if (coach.length) { L.push('App suggestions:'); for (const c of coach) L.push(`  - ${c.text}`) }
 
-  h('Quran & French (no targets)')
-  L.push(w.quran.length ? w.quran.map((e) => `${fmtDay(e.local_date)} ${e.kind} ${surahLatin(e.surah)} (${e.surah})`).join('\n') : 'No Quran entries.')
+  h('Quran daily check-in')
+  L.push(`Done on ${w.quranCheckinDays}/7 days${w.quranCheckins.length ? `: ${amountSummary(w.quranCheckins)}` : ''}. Streak now: ${quranStreak(data.logs)} days.`)
+  L.push(`Saturday "Read my full plan": ${w.planRead}.`)
+
+  h('Quran surahs & French (no targets)')
+  L.push(w.quran.length ? w.quran.map((e) => `${fmtDay(e.local_date)} ${e.kind} ${surahLatin(e.surah)} (${e.surah})`).join('\n') : 'No surah entries.')
   L.push(w.frenchMin ? `French: ${w.frenchMin} min on ${w.frenchDays} days.` : 'No French logged.')
   return L.join('\n')
 }
@@ -203,10 +210,12 @@ export function buildMonthText(data: Data, today = localDate()): string {
     `${w.cardio.length}${w.cardio.length ? ` (${[cardioMin(w) && `${cardioMin(w)} min`, km(w) && `${km(w)} km`].filter(Boolean).join(', ')})` : ''}`,
     `${w.proteinDays}/7`,
     fmtDur(w.fo.total), `${Math.round(w.fo.longest)}m`, `${w.fo.lost}`,
+    `${w.quranCheckinDays}/7`,
     `${w.quran.length}`,
+    w.planRead,
   ].join(' | ')
-  L.push('Week | Gym | Hard | Arms | Core | Pull/Push | Legs | Cardio | Protein days | Focus | Longest | Lost focus | Quran')
-  L.push('--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---')
+  L.push('Week | Gym | Hard | Arms | Core | Pull/Push | Legs | Cardio | Protein days | Focus | Longest | Lost focus | Quran days | Surah entries | Plan read (Sat)')
+  L.push('--- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | ---')
   W.forEach((w, i) => L.push(row(`${fmtDay(w.start)}${i === 3 ? ' (last full)' : ''}`, w)))
   L.push(row(`${fmtDay(cur)} so far (${soFar}/7 days)`, now))
 
