@@ -212,4 +212,179 @@ export const SONGS: Song[] = [
       },
     ],
   },
+  {
+    id: 'coco-acai',
+    title: 'Coco Açaï',
+    artist: "Willy L'ancien",
+    cards: [
+      {
+        fr: 'Sous popo, le flash, c’est coco açaï',
+        en: 'High on “popo”, the rush tastes like coconut-açaí.',
+        context: 'The high feels sweet and fruity, and coco may also hint at cocaine. 🥥',
+        words: [
+          { fr: 'sous', en: 'under. Before a substance it means “high on”: il est sous alcool.' },
+          { fr: 'popo', en: 'I can’t confirm this one. It’s probably a nickname for whatever he’s on.' },
+          { fr: 'le flash', en: 'the rush from a drug. It also means a camera flash.' },
+          { fr: 'coco', en: 'coconut, and slang for cocaine.' },
+          { fr: 'açaï', en: 'say “a-sa-ee”. The ç sounds like s.' },
+        ],
+      },
+      {
+        fr: 'J’ai du Piatella, j’en veux pas d’ta caille',
+        en: 'I’ve got Piatella, I don’t want your “caille”.',
+        context: 'He has top-quality hash, so he doesn’t need yours. 🍃',
+        words: [
+          { fr: 'Piatella', en: 'a premium type of hash.' },
+          { fr: 'j’en veux pas', en: 'I don’t want any. The ne is dropped.' },
+          { fr: 'd’ta', en: 'de ta (of your). After a negative, “some” becomes de.' },
+          { fr: 'caille', en: 'literally a quail. Here it probably means “your stuff”, but that’s a guess.' },
+        ],
+      },
+      {
+        fr: 'Ils aiment l’odeur du fric, ont le nez plein de bails de (Mmh)',
+        en: 'They love the smell of money, their noses are full of… stuff.',
+        context: 'The hum hides the word, and a nose full of something hints at cocaine. 👃',
+        words: [
+          { fr: 'le fric', en: 'slang for money.' },
+          { fr: 'une odeur', en: 'a smell.' },
+          { fr: 'des bails', en: 'stuff, shady deals. C’est quoi ce bail ? = What’s going on?' },
+          { fr: 'ont', en: '(they) have. The second ils is dropped to keep the rhythm.' },
+        ],
+      },
+      {
+        fr: 'J’ai la dégaine à Keyser Söze',
+        en: 'I’ve got the look of Keyser Söze.',
+        context: 'Keyser Söze is the hidden boss in The Usual Suspects who fools everyone by acting harmless. 🎬',
+        words: [
+          { fr: 'la dégaine', en: 'your look, the way you walk.' },
+          { fr: 'à Keyser', en: 'de Keyser (Keyser’s). Using à for “belonging to” is very common in speech.' },
+        ],
+      },
+      {
+        fr: 'Pas cramé, ils m’ont mis sur l’côté',
+        en: 'They didn’t catch me, but they pushed me aside.',
+        context: 'Nobody saw through him, but he still got sidelined.',
+        words: [
+          { fr: 'cramé', en: 'literally burnt. Slang for caught or exposed.' },
+          { fr: 'ils m’ont mis', en: 'they put me (mettre in the passé composé).' },
+          { fr: 'sur l’côté', en: 'to the side.' },
+        ],
+      },
+      {
+        fr: 'Maintenant, rien que ça m’propose des lovés',
+        en: 'Now they keep offering me cash.',
+        context: 'Since he made it, everyone shows up with money. 💸',
+        words: [
+          { fr: 'rien que', en: 'nothing but, only.' },
+          { fr: 'ça', en: '“they / those people”, said in a cold way.' },
+          { fr: 'm’propose', en: 'me propose (offer me). The e gets swallowed.' },
+          { fr: 'des lovés', en: 'money. The word comes from Romani.' },
+        ],
+      },
+      {
+        fr: 'Niquez-vous, c’est tout seul que j’me suis sauvé',
+        en: 'Screw you all, I saved myself on my own.',
+        context: 'Nobody helped him back then. 😤',
+        words: [
+          { fr: 'Niquez-vous', en: 'very vulgar. Understand it, don’t use it.' },
+          { fr: 'c’est… que', en: 'puts one part in the spotlight: “it’s on my own that…”' },
+          { fr: 'tout seul', en: 'all alone.' },
+          { fr: 'se sauver', en: 'to save yourself, and also to run away.' },
+        ],
+      },
+      {
+        fr: 'Je garde tout à l’intérieur, quelques humains m’ont déçu',
+        en: 'I keep everything inside, a few people let me down.',
+        context: 'He’s been hurt, so he hides his feelings. 💭',
+        words: [
+          { fr: 'garder', en: 'to keep.' },
+          { fr: 'à l’intérieur', en: 'inside.' },
+          { fr: 'quelques', en: 'a few.' },
+          { fr: 'déçu', en: 'disappointed, from décevoir. It does NOT mean “to deceive”.' },
+        ],
+      },
+      {
+        fr: 'Je trace mon chemin, peu importe ce qui se trouve dessus',
+        en: 'I make my own way, whatever’s on it.',
+        context: 'He keeps going no matter what.',
+        words: [
+          { fr: 'tracer son chemin', en: 'to make your own way.' },
+          { fr: 'peu importe', en: 'no matter, whatever.' },
+          { fr: 'ce qui', en: 'what (as the subject of the next verb).' },
+          { fr: 'dessus', en: 'on it. Its opposite is dessous (under it).' },
+        ],
+      },
+      {
+        fr: 'Pour toi, j’suis prêt à tout',
+        en: 'For you, I’m ready to do anything.',
+        context: 'This is the chorus, sung 4 times. ❤️',
+        words: [
+          { fr: 'j’suis', en: 'je suis. It often sounds like “shwee”.' },
+          { fr: 'prêt à tout', en: 'ready to do anything.' },
+        ],
+      },
+      {
+        fr: 'C’est Willy la moulaga',
+        en: 'It’s Willy “la moulaga”.',
+        context: 'He introduces himself with a nickname.',
+        words: [
+          { fr: 'moulaga', en: 'I can’t confirm this. It probably comes from la moula (money).' },
+        ],
+      },
+      {
+        fr: 'Les gitans passent, les chiens aboient',
+        en: 'The Gypsies pass by, the dogs bark.',
+        context: 'This twists the proverb les chiens aboient, la caravane passe, which means “ignore the haters”. 🐕',
+        words: [
+          { fr: 'les gitans', en: 'Romani people. Lovés and bédaver come from their language.' },
+          { fr: 'aboyer', en: 'to bark.' },
+        ],
+      },
+      {
+        fr: 'On est prêt, ramène nous tes gars',
+        en: 'We’re ready, bring us your guys.',
+        context: 'A challenge: send your crew.',
+        words: [
+          { fr: 'on', en: 'we, in speech.' },
+          { fr: 'ramène-nous', en: 'bring us (a command).' },
+          { fr: 'un gars', en: 'a guy. The s is silent.' },
+        ],
+      },
+      {
+        fr: 'Échec, échec',
+        en: 'Check, check.',
+        context: 'Like in chess: he has you trapped. ♟️',
+        words: [
+          { fr: 'échec', en: 'check, and also failure. Échec et mat = checkmate.' },
+        ],
+      },
+      {
+        fr: 'J’ai sali les Botega',
+        en: 'I got my Bottegas dirty.',
+        context: 'Bottega Veneta is a luxury brand, and he does rough things in expensive gear. 👟',
+        words: [
+          { fr: 'salir', en: 'to make dirty. Sale = dirty.' },
+        ],
+      },
+      {
+        fr: 'Je compte plus les kills, comme Gotaga',
+        en: 'I don’t count the kills anymore, like Gotaga.',
+        context: 'Gotaga is a famous French Call of Duty gamer. 🎮',
+        words: [
+          { fr: 'je compte plus', en: 'je ne compte plus. Ne… plus means “not anymore”.' },
+          { fr: 'comme', en: 'like.' },
+        ],
+      },
+      {
+        fr: 'Toujours mon 9, et un bout d’taga',
+        en: 'Always my 9, and a piece of “taga”.',
+        context: 'Mon 9 is a 9 mm pistol.',
+        words: [
+          { fr: 'toujours', en: 'always, still.' },
+          { fr: 'un bout de', en: 'a piece of.' },
+          { fr: 'taga', en: 'I can’t confirm this. It’s probably hash, since hash comes in a bout.' },
+        ],
+      },
+    ],
+  },
 ]
